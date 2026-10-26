@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local secrets — never commit. See `.env.server.example` / `.env.example`.
+.env
+.env.*
+!.env.example
+!.env.server.example
+
+# OS / editor
+.DS_Store
+*.log

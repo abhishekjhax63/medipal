@@ -1,0 +1,460 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Global MEDIPAL palette — white, blush pink, crimson. */
+    --medipal-crimson: #e91e4d;
+    --medipal-red: #f04452;
+    --medipal-red-soft: #c2183a;
+    --medipal-burgundy: #4c1028;
+    --medipal-blush: #ffe7ed;
+    --medipal-blush-soft: #fff5f7;
+    --medipal-ink: #17171c;
+    --medipal-muted: #686873;
+    --medipal-line: #e8dde1;
+    --medipal-surface: #ffffff;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-white font-sans text-content-primary antialiased;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgba(233, 30, 77, 0.18);
+    color: #17171c;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(233, 30, 77, 0.65);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(23, 23, 28, 0.16) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(23, 23, 28, 0.14);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(233, 30, 77, 0.4);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* ---------- Glass surfaces ----------
+     The whole application now sits on white / blush, so every glass
+     treatment is a frosted *light* surface with a hairline border. */
+  .glass-panel {
+    position: relative;
+    background: linear-gradient(
+      152deg,
+      rgba(255, 255, 255, 0.86) 0%,
+      rgba(255, 255, 255, 0.68) 46%,
+      rgba(255, 245, 247, 0.78) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    box-shadow:
+      0 20px 50px -28px rgba(76, 16, 40, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(233, 30, 77, 0.04);
+  }
+
+  .glass-panel-soft {
+    position: relative;
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(255, 255, 255, 0.58) 60%,
+      rgba(255, 245, 247, 0.68) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+      0 14px 38px -24px rgba(76, 16, 40, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Retained name: the AI Doctor and E-UPCHAR surfaces. */
+  .glass-light {
+    position: relative;
+    background: linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.72) 48%,
+      rgba(255, 245, 248, 0.8) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow:
+      0 24px 60px -30px rgba(76, 16, 40, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  /* Pointer-tracked reflection layer. Consumers set --mx / --my via refs. */
+  .glass-sheen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      420px circle at var(--mx, 50%) var(--my, 0%),
+      rgba(255, 255, 255, 0.85),
+      rgba(255, 231, 237, 0.35) 38%,
+      transparent 68%
+    );
+    opacity: 0;
+    transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .glass-sheen:hover::before,
+  .glass-sheen:focus-within::before {
+    opacity: 1;
+  }
+
+  /* Thin crimson hairline along the top edge of a panel */
+  .glass-hairline::after {
+    content: "";
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 0;
+    height: 1px;
+    border-radius: 9999px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(233, 30, 77, 0.5),
+      rgba(255, 255, 255, 0.9),
+      rgba(233, 30, 77, 0.5),
+      transparent
+    );
+    opacity: 0.9;
+  }
+
+  /* ---------- Typography helpers ---------- */
+  .text-gradient-red {
+    background: linear-gradient(102deg, #f04452 0%, #e91e4d 48%, #c2183a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .eyebrow {
+    @apply font-manrope text-[0.7rem] font-semibold uppercase tracking-[0.34em] text-content-secondary;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-all duration-300 ease-smooth;
+    @apply disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  .btn-primary {
+    @apply btn text-white;
+    background: linear-gradient(120deg, #f04452 0%, #e91e4d 52%, #c2183a 100%);
+    box-shadow:
+      0 16px 36px -18px rgba(233, 30, 77, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 22px 46px -18px rgba(233, 30, 77, 0.85),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .btn-secondary {
+    @apply btn text-content-primary;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid var(--medipal-line);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 10px 26px -20px rgba(76, 16, 40, 0.3);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(233, 30, 77, 0.45);
+    box-shadow: 0 18px 38px -22px rgba(76, 16, 40, 0.4);
+  }
+
+  .btn-ghost {
+    @apply btn text-content-secondary;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    color: #c2183a;
+    background: rgba(233, 30, 77, 0.06);
+  }
+
+  /* ---------- Form fields ---------- */
+  .field-label {
+    @apply mb-2 block text-xs font-medium uppercase tracking-[0.16em] text-content-secondary;
+  }
+
+  .field {
+    @apply w-full rounded-2xl px-4 py-3 text-sm text-content-primary transition-all duration-300 ease-smooth;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--medipal-line);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    outline: none;
+  }
+
+  .field::placeholder {
+    color: rgba(104, 104, 115, 0.62);
+  }
+
+  .field:hover:not(:disabled) {
+    border-color: rgba(23, 23, 28, 0.22);
+  }
+
+  .field:focus {
+    border-color: rgba(233, 30, 77, 0.6);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+  }
+
+  .field[aria-invalid="true"] {
+    border-color: rgba(233, 30, 77, 0.75);
+    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.1);
+  }
+
+  .field-error {
+    @apply mt-1.5 flex items-center gap-1.5 text-xs text-crimson-soft;
+  }
+
+  .field option {
+    background-color: #ffffff;
+    color: #17171c;
+  }
+
+  /* ---------- Layout helpers ---------- */
+  .section-shell {
+    @apply relative mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12;
+  }
+
+  .section-pad {
+    @apply py-20 sm:py-24 lg:py-28;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-line bg-white/75 px-3.5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-secondary backdrop-blur-md;
+  }
+
+  .divider-glass {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(23, 23, 28, 0.12) 20%,
+      rgba(23, 23, 28, 0.12) 80%,
+      transparent
+    );
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ------------------------------------------------------------------
+     E-UPCHAR — light, practical clinical surfaces (spec §2).
+     Scoped to `.eu-scope` so the dark Blood Bank / AI Doctor themes
+     are never affected.
+     ------------------------------------------------------------------ */
+  .eu-scope {
+    color-scheme: light;
+  }
+
+  .eu-surface {
+    @apply rounded-2xl border border-eu-border bg-eu-bg shadow-eu-card;
+  }
+
+  .eu-surface-flat {
+    @apply rounded-2xl border border-eu-border bg-eu-surface;
+  }
+
+  /* Selectively glassy — enough depth to feel premium, still readable. */
+  .eu-glass {
+    @apply relative rounded-2xl border border-white/70;
+    background: linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.72) 52%,
+      rgba(253, 240, 237, 0.78) 100%
+    );
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow:
+      0 1px 2px rgba(32, 33, 36, 0.05),
+      0 20px 44px -26px rgba(32, 33, 36, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  .eu-btn {
+    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-300 ease-smooth;
+    @apply disabled:cursor-not-allowed disabled:opacity-55;
+  }
+
+  .eu-btn-primary {
+    @apply eu-btn text-white;
+    background: linear-gradient(140deg, #f04452 0%, #e91e4d 55%, #c2183a 100%);
+    box-shadow:
+      0 12px 26px -14px rgba(233, 30, 77, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .eu-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1.5px);
+    box-shadow:
+      0 18px 34px -14px rgba(194, 24, 58, 0.85),
+      inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  }
+
+  .eu-btn-secondary {
+    @apply eu-btn border border-eu-border bg-eu-bg text-eu-text;
+  }
+
+  .eu-btn-secondary:hover:not(:disabled) {
+    transform: translateY(-1.5px);
+    border-color: rgba(233, 30, 77, 0.5);
+    box-shadow: 0 14px 28px -20px rgba(23, 23, 28, 0.34);
+  }
+
+  .eu-btn-quiet {
+    @apply eu-btn text-eu-muted;
+  }
+
+  .eu-btn-quiet:hover:not(:disabled) {
+    background: #f7f7f9;
+    color: #17171c;
+  }
+
+  .eu-label {
+    @apply mb-1.5 block text-[0.78rem] font-semibold text-eu-text;
+  }
+
+  .eu-field {
+    @apply w-full rounded-xl border border-eu-border bg-eu-bg px-3.5 py-2.5 text-sm text-eu-text transition-all duration-300 ease-smooth outline-none;
+  }
+
+  .eu-field::placeholder {
+    color: rgba(104, 104, 115, 0.68);
+  }
+
+  .eu-field:hover:not(:disabled) {
+    border-color: #cdc2c7;
+  }
+
+  .eu-field:focus {
+    border-color: #e91e4d;
+    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+  }
+
+  .eu-field[aria-invalid="true"] {
+    border-color: #c2183a;
+    box-shadow: 0 0 0 4px rgba(194, 24, 58, 0.12);
+  }
+
+  .eu-field-error {
+    @apply mt-1.5 text-xs font-medium text-eu-red-deep;
+  }
+
+  .eu-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-eu-border bg-eu-surface px-3 py-1 text-[0.7rem] font-semibold tracking-wide text-eu-muted;
+  }
+
+  .eu-eyebrow {
+    @apply text-[0.7rem] font-bold uppercase tracking-[0.22em] text-eu-muted;
+  }
+
+  .eu-divider {
+    height: 1px;
+    background: #e6e8ea;
+  }
+
+  .eu-scroll-x {
+    @apply no-scrollbar flex gap-2 overflow-x-auto;
+  }
+
+  .eu-shell {
+    @apply relative mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .eu-skeleton {
+    @apply animate-pulse rounded-lg bg-eu-surface;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Receipt printing: hide app chrome so a printed receipt is just the document. */
+@media print {
+  .eu-no-print {
+    display: none !important;
+  }
+}
