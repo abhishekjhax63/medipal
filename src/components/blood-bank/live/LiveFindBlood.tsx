@@ -1,200 +1,334 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
+import { useReducedMotion } from "framer-motion";
 import {
   Phone,
-  Send,
   MapPin,
   Navigation,
-  MessageSquare,
-  Search,
-  Filter,
-  CheckCircle2,
   Loader2,
   RotateCcw,
+  AlertTriangle,
+  RefreshCw,
+  Radio,
+  Activity,
+  ExternalLink,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import {
+  bloodApi,
+  liveStreamUrl,
+  BloodApiError,
+} from "@/services/blood/api";
+import type {
+  BiharDistrict,
+  BloodHealthResponse,
+  CentresResponse,
+  LiveCentreRow,
+  LiveStreamEvent,
+  NearbyCentresResponse,
+} from "@/services/blood/types";
+import {
+  LIVE_FRESHNESS_DOT,
+  LIVE_FRESHNESS_EXPLANATION,
+  LIVE_FRESHNESS_LABEL,
+  LIVE_FRESHNESS_TONE,
+  AVAILABILITY_STATUS_LABEL,
+  absoluteTime,
+  formatDistance,
+  relativeTime,
+} from "@/lib/blood/presentation";
 import { LiveNotice, type LiveNoticeMessage } from "./LiveNotice";
 
-// Patna centroid
-const PATNA_CENTER: L.LatLngExpression = [25.5941, 85.1376];
-const FACILITY_ZOOM = 13;
+const STATE = "Bihar";
 
-interface Facility {
-  id: string;
-  name: string;
-  type: string;
-  address: string;
-  bloodGroup: string;
-  component: string;
-  units: number;
-  lastVerified: string;
-  status: "verified" | "due" | "stale";
-  coordinates: [number, number];
-  phone: string;
-}
+/** Bihar centroid — used only to frame the map before any centre is known. */
+const BIHAR_CENTER: L.LatLngExpression = [25.6, 85.1];
+const DEFAULT_ZOOM = 7;
+const FOCUS_ZOOM = 12;
 
-const MOCK_FACILITIES: Facility[] = [
-  {
-    id: "1",
-    name: "Gardanibagh Sub-Divisional Hospital",
-    type: "HOSPITAL BLOOD BANK",
-    address: "Road No. 1, Gardanibagh, Patna",
-    bloodGroup: "O-",
-    component: "Packed Red Blood Cells",
-    units: 4,
-    lastVerified: "3 hrs ago",
-    status: "verified",
-    coordinates: [25.5988, 85.1158],
-    phone: "0612-2250123"
-  },
-  {
-    id: "2",
-    name: "Jaiprabha Hospital Model Blood Bank",
-    type: "REGIONAL BLOOD CENTER",
-    address: "Kankarbagh, Near Colony More, Patna",
-    bloodGroup: "O-",
-    component: "Packed Red Blood Cells",
-    units: 9,
-    lastVerified: "1 hr ago",
-    status: "verified",
-    coordinates: [25.5925, 85.1522],
-    phone: "0612-2350456"
-  },
-  {
-    id: "3",
-    name: "AIIMS Patna (Apex Hub)",
-    type: "CENTRAL BLOOD BANK",
-    address: "Phulwari Sharif, Patna",
-    bloodGroup: "O-",
-    component: "Packed Red Blood Cells",
-    units: 12,
-    lastVerified: "5 hrs ago",
-    status: "due",
-    coordinates: [25.5606, 85.0754],
-    phone: "0612-2451000"
-  },
-  {
-    id: "4",
-    name: "PMCH Patna",
-    type: "GOVERNMENT BLOOD BANK",
-    address: "Ashok Rajpath, Patna",
-    bloodGroup: "O-",
-    component: "Packed Red Blood Cells",
-    units: 0,
-    lastVerified: "12 hrs ago",
-    status: "stale",
-    coordinates: [25.6206, 85.1544],
-    phone: "0612-2300080"
-  }
-];
+const COMPONENTS = [
+  "Packed Red Blood Cells",
+  "Whole Blood",
+  "Platelets",
+  "Fresh Frozen Plasma",
+  "Cryoprecipitate",
+] as const;
 
-const STATUS_LABEL: Record<Facility["status"], string> = {
-  verified: "Recently verified (<4h)",
-  due: "Update due (4-12h)",
-  stale: "Stale / Unconfirmed",
-};
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
-/** Great-circle distance in kilometres between two [lat, lng] pairs. */
-function haversineKm(from: [number, number], to: [number, number]): number {
-  const R = 6371;
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const dLat = toRad(to[0] - from[0]);
-  const dLon = toRad(to[1] - from[1]);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(from[0])) * Math.cos(toRad(to[0])) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+/** Stable identity for a centre × group × component figure. */
+function grainOf(row: LiveCentreRow): string {
+  return `${row.centreId}:${row.bloodGroup}:${row.component}`;
 }
 
 export function LiveFindBlood() {
-  const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | Facility["status"]>("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  // ---- filters (§14) -------------------------------------------------------
+  const [district, setDistrict] = useState("");
+  const [bloodGroup, setBloodGroup] = useState("");
+  const [component, setComponent] = useState("");
+  const [emergency, setEmergency] = useState(false);
+
+  // ---- data ----------------------------------------------------------------
+  const [districts, setDistricts] = useState<BiharDistrict[]>([]);
+  const [rows, setRows] = useState<LiveCentreRow[]>([]);
+  const [meta, setMeta] = useState<CentresResponse | NearbyCentresResponse | null>(null);
+  const [health, setHealth] = useState<BloodHealthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<BloodApiError | null>(null);
+
+  // ---- location ------------------------------------------------------------
   const [origin, setOrigin] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(false);
+
+  // ---- live stream ---------------------------------------------------------
+  const [streamState, setStreamState] = useState<"connecting" | "live" | "offline">(
+    "connecting",
+  );
+  const [recentlyChanged, setRecentlyChanged] = useState<Record<string, string>>({});
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [notice, setNotice] = useState<LiveNoticeMessage | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<{ [key: string]: L.CircleMarker }>({});
+  const layerRef = useRef<L.LayerGroup | null>(null);
+  const markerIndexRef = useRef<Record<string, L.CircleMarker>>({});
 
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const filtered = MOCK_FACILITIES.filter((facility) => {
-      if (statusFilter !== "all" && facility.status !== statusFilter) return false;
-      if (needle) {
-        const haystack = `${facility.name} ${facility.address} ${facility.type}`.toLowerCase();
-        if (!haystack.includes(needle)) return false;
+  // ---------------------------------------------------------------------------
+  // Loading
+  // ---------------------------------------------------------------------------
+
+  /** The current query, as a stable value so the fetch effect can depend on it. */
+  const load = useCallback(
+    async (options: { silent?: boolean; signal?: AbortSignal } = {}) => {
+      if (options.silent) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      try {
+        if (origin) {
+          // Coordinate search: the server ranks confirmed, recently reported
+          // stock first and never presents a stale figure as confirmed.
+          const [lon, lat] = [origin[1], origin[0]];
+          void lon;
+          const payload = await bloodApi.liveNearby(
+            {
+              latitude: lat,
+              longitude: origin[1],
+              bloodGroup: bloodGroup || undefined,
+              component: component || undefined,
+              radiusKm: 200,
+              limit: 200,
+            },
+            options.signal,
+          );
+          setRows(payload.results);
+          setMeta(payload);
+        } else {
+          const payload = await bloodApi.centres(
+            {
+              district: district || undefined,
+              bloodGroup: bloodGroup || undefined,
+              component: component || undefined,
+              sortBy: emergency ? "emergency" : "priority",
+              limit: 200,
+            },
+            options.signal,
+          );
+          setRows(payload.results);
+          setMeta(payload);
+        }
+      } catch (caught) {
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        setError(
+          caught instanceof BloodApiError
+            ? caught
+            : new BloodApiError(0, "The blood data service could not be reached.", "NETWORK_UNAVAILABLE"),
+        );
+        setRows([]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      return true;
-    });
+    },
+    [origin, district, bloodGroup, component, emergency],
+  );
 
-    if (!origin) return filtered;
-    return [...filtered].sort(
-      (a, b) => haversineKm(origin, a.coordinates) - haversineKm(origin, b.coordinates),
-    );
-  }, [query, statusFilter, origin]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load({ signal: controller.signal });
+    return () => controller.abort();
+  }, [load]);
 
-  const filtered = query.trim() !== "" || statusFilter !== "all";
-  const special = MOCK_FACILITIES.filter((f) => f.status !== "verified").length;
+  const loadHealth = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setHealth(await bloodApi.health(signal));
+    } catch {
+      /* the health panel simply stays as it was */
+    }
+  }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadHealth(controller.signal);
+    return () => controller.abort();
+  }, [loadHealth]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    bloodApi
+      .districts({ state: STATE }, controller.signal)
+      .then((payload) => setDistricts(payload.districts))
+      .catch(() => setDistricts([]));
+    return () => controller.abort();
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Realtime (§11-§13): a synced change is pushed, and the list is re-read so
+  // the freshness verdict stays the server's decision, never the browser's.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (typeof EventSource === "undefined") {
+      setStreamState("offline");
+      return;
+    }
+    const source = new EventSource(liveStreamUrl());
+
+    source.onopen = () => setStreamState("live");
+    source.onerror = () => setStreamState("connecting");
+
+    source.onmessage = (event) => {
+      let payload: LiveStreamEvent;
+      try {
+        payload = JSON.parse(event.data) as LiveStreamEvent;
+      } catch {
+        return;
+      }
+      setStreamState("live");
+
+      if (payload.type === "inventory.change" && payload.facilityId && payload.bloodGroup && payload.component) {
+        const key = `${payload.facilityId}:${payload.bloodGroup}:${payload.component}`;
+        if (typeof payload.units === "number") {
+          // Optimistically reflect the pushed number, then re-read so the
+          // server re-issues the freshness verdict for the new observation.
+          setRows((current) =>
+            current.map((row) =>
+              grainOf(row) === key
+                ? {
+                    ...row,
+                    units: payload.units as number,
+                    availabilityStatus: payload.availabilityStatus ?? row.availabilityStatus,
+                    lastUpdatedAt: payload.sourceUpdatedAt ?? row.lastUpdatedAt,
+                  }
+                : row,
+            ),
+          );
+        }
+        setRecentlyChanged((current) => ({ ...current, [key]: payload.at }));
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => void load({ silent: true }), 700);
+      }
+
+      if (payload.type === "sync.completed" || payload.type === "sync.failed") {
+        void loadHealth();
+      }
+    };
+
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      source.close();
+    };
+  }, [load, loadHealth]);
+
+  // ---------------------------------------------------------------------------
+  // Map
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: PATNA_CENTER,
-      zoom: FACILITY_ZOOM,
+      center: BIHAR_CENTER,
+      zoom: DEFAULT_ZOOM,
       scrollWheelZoom: false,
     });
-
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
+    layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-
-    MOCK_FACILITIES.forEach(facility => {
-      const color = facility.status === "verified" ? "#10b981" : facility.status === "due" ? "#f59e0b" : "#0b5fa5";
-      const marker = L.circleMarker(facility.coordinates, {
-        radius: 8,
-        color: color,
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 0.8,
-      }).addTo(map);
-
-      marker.bindPopup(`<strong>${facility.name}</strong><br/>${facility.units} units available`);
-      markersRef.current[facility.id] = marker;
-
-      marker.on('click', () => setSelectedFacility(facility.id));
-    });
 
     return () => {
       map.remove();
       mapRef.current = null;
+      layerRef.current = null;
+      markerIndexRef.current = {};
     };
   }, []);
 
+  // Plot only centres that actually published coordinates. A centre without a
+  // coordinate simply does not get a pin — no location is ever guessed.
   useEffect(() => {
-    if (selectedFacility && mapRef.current && markersRef.current[selectedFacility]) {
-      const facility = MOCK_FACILITIES.find(f => f.id === selectedFacility);
-      if (facility) {
-        mapRef.current.setView(facility.coordinates, FACILITY_ZOOM + 1);
-        markersRef.current[selectedFacility].openPopup();
-      }
-    }
-  }, [selectedFacility]);
+    const layer = layerRef.current;
+    if (!layer) return;
 
+    layer.clearLayers();
+    markerIndexRef.current = {};
+
+    for (const row of rows) {
+      if (!row.coordinates) continue;
+      const key = grainOf(row);
+      const marker = L.circleMarker(row.coordinates, {
+        radius: row.freshness === "LIVE" ? 9 : 7,
+        color: "#E91E4D",
+        weight: 2,
+        fillColor: dotHex(row.freshness),
+        fillOpacity: row.freshness === "UNKNOWN" ? 0.5 : 0.85,
+      }).addTo(layer);
+
+      marker.bindPopup(
+        `<strong>${escapeHtml(row.name)}</strong><br/>` +
+          `${escapeHtml(row.bloodGroup)} · ${escapeHtml(row.component)}<br/>` +
+          `${row.units} ${escapeHtml(row.unit)} · ${escapeHtml(LIVE_FRESHNESS_LABEL[row.freshness])}`,
+      );
+      marker.on("click", () => setSelected(key));
+      markerIndexRef.current[key] = marker;
+    }
+
+    if (rows.length > 0 && origin) {
+      mapRef.current?.setView(origin, FOCUS_ZOOM);
+    }
+  }, [rows, origin]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const marker = markerIndexRef.current[selected];
+    const row = rows.find((candidate) => grainOf(candidate) === selected);
+    if (marker && row?.coordinates) {
+      mapRef.current?.setView(row.coordinates, FOCUS_ZOOM);
+      marker.openPopup();
+    }
+  }, [selected, rows]);
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
   function useMyLocation() {
     if (!("geolocation" in navigator)) {
       setNotice({
         id: "geo-unsupported",
         tone: "warn",
         title: "This browser cannot share a location",
-        body: "Positioning is unavailable in this browser. Search by name or use the map to pick a facility instead.",
+        body: "Positioning is unavailable here. Pick a district to browse instead — MEDIPAL never guesses where you are.",
       });
       return;
     }
@@ -206,118 +340,213 @@ export function LiveFindBlood() {
         setNotice({
           id: "geo-ok",
           tone: "info",
-          title: "Sorted by straight-line distance",
-          body: "Distances below are calculated on your device from your current position to each facility's centre point. They are not driving distances and no route is requested.",
+          title: "Ordered for an emergency, nearest first",
+          body:
+            "Distances are straight-line from your position to each centre's published coordinates. They are not driving distances and no route is requested.",
         });
       },
-      (error) => {
+      (caught) => {
         setLocating(false);
         setNotice({
           id: "geo-denied",
           tone: "warn",
           title: "Location not shared",
           body:
-            error.code === error.PERMISSION_DENIED
-              ? "You denied the location prompt, so MEDIPAL has not received your position. The directory still works: search by name or pick a facility from the map."
-              : "Your device could not determine a position. The directory still works: search by name or pick a facility from the map.",
+            caught.code === caught.PERMISSION_DENIED
+              ? "You declined the location prompt, so MEDIPAL has not received your position. Choose a district to browse instead."
+              : "Your device could not determine a position. Choose a district to browse instead.",
         });
       },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
     );
   }
 
-  function resetFilters() {
-    setQuery("");
-    setStatusFilter("all");
+  function clearLocation() {
+    setOrigin(null);
+    setNotice(null);
   }
 
+  function resetFilters() {
+    setDistrict("");
+    setBloodGroup("");
+    setComponent("");
+    setEmergency(false);
+  }
+
+  const activeFilters = Boolean(district || bloodGroup || component || emergency || origin);
+
+  const summary = useMemo(() => {
+    const centres = new Set(rows.map((row) => row.centreId)).size;
+    const confirmed = rows.filter(
+      (row) => (row.freshness === "LIVE" || row.freshness === "RECENT") && row.units > 0,
+    ).length;
+    return { centres, confirmed, lines: rows.length };
+  }, [rows]);
+
+  const disclaimer =
+    meta?.disclaimer ??
+    "Reported availability. Please call the blood centre to confirm before travelling.";
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
-    <div className="flex h-full min-h-[600px] flex-col lg:flex-row">
-      {/* Sidebar List */}
-      <div className="w-full border-r border-line bg-white/30 lg:w-[450px]">
-        <div className="sticky top-0 z-10 border-b border-line bg-white/80 p-6 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-content-secondary">
-              Found {visible.length} of {MOCK_FACILITIES.length} facilities
-            </h2>
-            <button
-              type="button"
-              onClick={() => setShowFilters((open) => !open)}
-              aria-expanded={showFilters}
-              className={cn(
-                "flex items-center gap-2 text-xs font-medium transition-colors",
-                showFilters || filtered ? "text-crimson" : "text-content-secondary hover:text-crimson",
-              )}
+    <div className="flex h-full min-h-[640px] flex-col lg:flex-row">
+      {/* ---- Sidebar: filters + results -------------------------------------- */}
+      <div className="w-full border-b border-line bg-white/30 lg:w-[520px] lg:border-b-0 lg:border-r">
+        <div className="border-b border-line bg-white/80 p-5 backdrop-blur-md lg:sticky lg:top-0 lg:z-10">
+          {/* Emergency mode (§16) */}
+          <button
+            type="button"
+            onClick={() => setEmergency((on) => !on)}
+            aria-pressed={emergency}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-bold uppercase tracking-[0.12em] transition-all",
+              emergency
+                ? "border-crimson bg-crimson text-white shadow-glow-red-sm"
+                : "border-crimson/30 bg-blush text-crimson hover:bg-blush/70",
+            )}
+          >
+            <AlertTriangle className={cn("h-4 w-4", emergency && !reduceMotion && "animate-pulse")} aria-hidden />
+            {emergency ? "Emergency ranking ON" : "Find blood now"}
+          </button>
+          {emergency && (
+            <p className="mt-2 text-[0.68rem] leading-relaxed text-content-secondary">
+              Confirmed and recently reported stock is listed first, then low stock, then
+              unconfirmed figures. A stale or undated row is never shown as confirmed available.
+            </p>
+          )}
+
+          {/* Four-level selection (§14) */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <label className="col-span-2 text-[0.6rem] font-bold uppercase tracking-widest text-content-secondary/70">
+              State
+            </label>
+            <div className="col-span-2 flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-content-primary">
+              <MapPin className="h-4 w-4 text-crimson" aria-hidden />
+              {STATE}
+              <span className="ml-auto text-[0.6rem] uppercase tracking-widest text-content-secondary/60">
+                {districts.length || "—"} districts
+              </span>
+            </div>
+
+            <label className="col-span-2 mt-1 text-[0.6rem] font-bold uppercase tracking-widest text-content-secondary/70">
+              District
+            </label>
+            <select
+              value={district}
+              onChange={(event) => setDistrict(event.target.value)}
+              disabled={Boolean(origin)}
+              aria-label="District"
+              className="col-span-2 rounded-xl border border-line bg-white px-3 py-2 text-sm text-content-primary outline-none focus:border-crimson/50 disabled:opacity-50"
             >
-              <Filter className="h-3.5 w-3.5" aria-hidden />
-              {showFilters ? "Hide filters" : "Filter results"}
-            </button>
+              <option value="">All Bihar</option>
+              {districts.map((item) => (
+                <option key={item.id} value={item.name}>
+                  {item.name}
+                  {item.approvedCentres > 0 ? ` · ${item.approvedCentres} centre(s)` : ""}
+                </option>
+              ))}
+            </select>
+
+            <div className="col-span-2 grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[0.6rem] font-bold uppercase tracking-widest text-content-secondary/70">
+                  Blood group
+                </label>
+                <select
+                  value={bloodGroup}
+                  onChange={(event) => setBloodGroup(event.target.value)}
+                  aria-label="Blood group"
+                  className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-content-primary outline-none focus:border-crimson/50"
+                >
+                  <option value="">Any</option>
+                  {BLOOD_GROUPS.map((group) => (
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[0.6rem] font-bold uppercase tracking-widest text-content-secondary/70">
+                  Component
+                </label>
+                <select
+                  value={component}
+                  onChange={(event) => setComponent(event.target.value)}
+                  aria-label="Component"
+                  className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-content-primary outline-none focus:border-crimson/50"
+                >
+                  <option value="">Any</option>
+                  {COMPONENTS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 flex gap-2">
-            <div className="flex flex-1 items-center gap-2 rounded-xl border border-line bg-white px-3 py-2">
-              <Search className="h-4 w-4 text-content-secondary/50" aria-hidden />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search hospitals..."
-                aria-label="Search facilities by name or address"
-                className="w-full bg-transparent text-sm outline-none"
-              />
-            </div>
+          <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={useMyLocation}
+              onClick={origin ? clearLocation : useMyLocation}
               disabled={locating}
-              aria-label="Sort by distance from my location"
-              title="Sort by distance from my location"
-              className="rounded-xl border border-line bg-white px-3 py-2 text-content-secondary transition-colors hover:bg-blush-soft disabled:opacity-60"
+              className="btn-secondary flex-1 justify-center text-xs"
             >
               {locating ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               ) : (
-                <Navigation className="h-4 w-4" aria-hidden />
+                <Navigation className="h-3.5 w-3.5" aria-hidden />
               )}
+              {origin ? "Clear my location" : "Use my location"}
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!activeFilters}
+              className="btn-secondary justify-center text-xs disabled:opacity-40"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={() => void load({ silent: true })}
+              disabled={refreshing}
+              aria-label="Refresh results"
+              title="Refresh results"
+              className="btn-secondary justify-center text-xs"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} aria-hidden />
             </button>
           </div>
 
-          {showFilters && (
-            <div className="mt-4 space-y-3 rounded-xl border border-line bg-white p-4">
-              <div>
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-content-secondary/70">
-                  Verification freshness
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(["all", "verified", "due", "stale"] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setStatusFilter(value)}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-[0.65rem] font-semibold transition-colors",
-                        statusFilter === value
-                          ? "border-crimson bg-crimson text-white"
-                          : "border-line bg-white text-content-secondary hover:border-crimson/40",
-                      )}
-                    >
-                      {value === "all" ? "All" : STATUS_LABEL[value]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {filtered && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-crimson hover:underline"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                  Clear filters
-                </button>
-              )}
-            </div>
-          )}
+          {/* Source + freshness strip (§16, §25) */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[0.6rem] font-medium uppercase tracking-widest text-content-secondary">
+            <span className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  streamState === "live" ? "bg-emerald-500" : "bg-amber-500",
+                  streamState === "live" && !reduceMotion && "animate-pulse",
+                )}
+              />
+              {streamState === "live" ? "Realtime connected" : "Realtime connecting"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Radio className="h-3 w-3" aria-hidden />
+              {health?.status === "healthy" ? "Source live" : `Source: ${health?.status ?? "unknown"}`}
+            </span>
+            {health?.lastSuccessfulSync && (
+              <span className="flex items-center gap-1.5 normal-case tracking-normal">
+                <Activity className="h-3 w-3" aria-hidden />
+                Last sync {relativeTime(health.lastSuccessfulSync)}
+              </span>
+            )}
+          </div>
 
           {notice && (
             <div className="mt-4">
@@ -326,173 +555,343 @@ export function LiveFindBlood() {
           )}
         </div>
 
-        <div className="max-h-[700px] overflow-y-auto p-4 space-y-4">
-          {visible.length === 0 && (
-            <div className="rounded-2xl border border-line bg-white/60 p-8 text-center">
-              <p className="text-sm font-semibold text-content-primary">No facility matches</p>
-              <p className="mt-1 text-xs text-content-secondary">
-                Try a different name, or reset the verification filter.
+        {/* ---- Results ------------------------------------------------------ */}
+        <div className="max-h-[760px] space-y-4 overflow-y-auto p-4">
+          {loading && <SkeletonList />}
+
+          {!loading && error && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6">
+              <p className="text-sm font-semibold text-amber-900">
+                {error.isUnavailable ? "Blood data is temporarily unavailable" : "That search failed"}
               </p>
-              <button type="button" onClick={resetFilters} className="btn-secondary mt-4">
-                Clear filters
+              <p className="mt-1 text-xs leading-relaxed text-amber-900/80">{error.message}</p>
+              <button type="button" onClick={() => void load()} className="btn-secondary mt-4 text-xs">
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                Try again
               </button>
             </div>
           )}
 
-          {visible.map((facility) => (
-            <div
-              key={facility.id}
-              onClick={() => setSelectedFacility(facility.id)}
-              className={cn(
-                "group relative cursor-pointer rounded-2xl border p-5 transition-all duration-300 hover:shadow-md",
-                selectedFacility === facility.id
-                  ? "border-crimson bg-white ring-1 ring-crimson/10"
-                  : "border-line bg-white/60 hover:border-crimson/30 hover:bg-white"
-              )}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[0.65rem] font-bold uppercase tracking-widest text-content-secondary/70">
-                    {facility.type}
-                  </p>
-                  <h3 className="mt-1 font-display text-base font-semibold text-content-primary">
-                    {facility.name}
-                  </h3>
-                </div>
-                <div className="text-right">
-                  {origin ? (
-                    <>
-                      <p className="text-sm font-bold text-content-primary">
-                        {haversineKm(origin, facility.coordinates).toFixed(1)} km
-                      </p>
-                      <p className="text-[0.6rem] font-medium text-content-secondary uppercase tracking-tighter">
-                        straight-line
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-[0.6rem] font-medium text-content-secondary uppercase tracking-tighter">
-                      Share location
-                      <br />
-                      for distance
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between rounded-xl bg-blush-soft/50 p-3">
-                <div>
-                  <p className="text-xs font-semibold text-content-primary">{facility.bloodGroup} {facility.component}</p>
-                  <p className="mt-0.5 text-[0.65rem] text-content-secondary">Last verified: {facility.lastVerified}</p>
-                </div>
-                <div className="text-right">
-                  <p className={cn(
-                    "text-xl font-display font-bold",
-                    facility.units > 0 ? "text-crimson" : "text-content-secondary/50"
-                  )}>
-                    {facility.units} <span className="text-[0.65rem] uppercase tracking-normal">Units</span>
-                  </p>
-                  <p className="text-[0.6rem] font-medium text-content-secondary uppercase tracking-tighter">reported available</p>
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "h-2 w-2 rounded-full animate-pulse",
-                    facility.status === "verified" ? "bg-emerald-500" : facility.status === "due" ? "bg-amber-500" : "bg-crimson"
-                  )} />
-                  <span className="text-[0.65rem] font-medium text-content-secondary uppercase tracking-wider">
-                    {STATUS_LABEL[facility.status]}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-center gap-3">
-                <a
-                  href={`tel:${facility.phone}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-content-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-black"
-                >
-                  <Phone className="h-3.5 w-3.5" aria-hidden />
-                  Call
-                </a>
-                <Link
-                  to="/ai-doctor"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-xs font-medium text-content-primary transition-colors hover:bg-blush-soft"
-                >
-                  <Send className="h-3.5 w-3.5" aria-hidden />
-                  Ask Al Saathi
-                </Link>
-              </div>
-
-              <div className="mt-4 flex items-start gap-2 border-t border-line/50 pt-4 text-[0.65rem] text-content-secondary/80">
-                <MapPin className="h-3 w-3 shrink-0" aria-hidden />
-                <p>{facility.address}</p>
-              </div>
+          {!loading && !error && rows.length === 0 && (
+            <div className="rounded-2xl border border-line bg-white/60 p-8 text-center">
+              <p className="text-sm font-semibold text-content-primary">No centre is reporting this</p>
+              <p className="mt-1 text-xs leading-relaxed text-content-secondary">
+                No approved centre has published a figure for this combination. MEDIPAL shows an
+                empty list rather than an estimate. Widen the district, or try a different group.
+              </p>
             </div>
-          ))}
+          )}
+
+          {!loading && !error && rows.length > 0 && (
+            <>
+              <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-widest text-content-secondary">
+                {summary.lines} figure{summary.lines === 1 ? "" : "s"} across {summary.centres} centre
+                {summary.centres === 1 ? "" : "s"} · {summary.confirmed} confirmed
+                {meta && "truncated" in meta && meta.truncated ? " · list truncated" : ""}
+              </p>
+
+              {rows.map((row) => (
+                <ResultCard
+                  key={grainOf(row)}
+                  row={row}
+                  selected={selected === grainOf(row)}
+                  justChanged={Boolean(recentlyChanged[grainOf(row)])}
+                  reduceMotion={Boolean(reduceMotion)}
+                  onSelect={() => setSelected(grainOf(row))}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Map Content */}
-      <div className="relative flex-1 bg-blush-soft/20">
-        <div ref={containerRef} className="h-full w-full grayscale-[0.2] contrast-[1.1]" />
+      {/* ---- Map ------------------------------------------------------------- */}
+      <div className="relative min-h-[320px] flex-1 bg-blush-soft/20">
+        <div ref={containerRef} className="h-full min-h-[320px] w-full grayscale-[0.2] contrast-[1.1]" />
 
-        {/* Patna Network Status Overlay */}
-        <div className="absolute right-6 top-6 z-[1000] w-64 rounded-2xl border border-line bg-white/90 p-5 shadow-xl backdrop-blur-md">
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-hidden />
-            <h4 className="text-[0.7rem] font-bold uppercase tracking-widest text-content-primary">Patna Network Status</h4>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="text-[0.65rem] font-medium text-content-secondary uppercase tracking-wider">Recently verified (&lt;4h)</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              <span className="text-[0.65rem] font-medium text-content-secondary uppercase tracking-wider">Update due (4-12h)</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="h-2 w-2 rounded-full bg-crimson" />
-              <span className="text-[0.65rem] font-medium text-content-secondary uppercase tracking-wider">Stale unconfirmed (&gt;12h)</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="h-2 w-2 rounded-full bg-content-secondary/30" />
-              <span className="text-[0.65rem] font-medium text-content-secondary uppercase tracking-wider">Unconfirmed / No Stock</span>
-            </div>
-          </div>
-
-          <div className="divider-glass my-4" />
-          <p className="text-[0.6rem] font-medium text-amber-600 uppercase tracking-tighter leading-tight">
-            DEMO DATA — NOT LIVE HOSPITAL INVENTORY
+        <div className="absolute left-4 top-4 z-[1000] max-w-[17rem] rounded-2xl border border-line bg-white/90 p-4 shadow-lg backdrop-blur-md">
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-content-primary">
+            Freshness ladder
           </p>
-          <p className="mt-2 text-[0.6rem] leading-tight text-content-secondary">
-            {special} of {MOCK_FACILITIES.length} listings are overdue or stale.
+          <ul className="mt-2 space-y-1.5">
+            {(["LIVE", "RECENT", "STALE", "OUTDATED", "UNKNOWN"] as const).map((level) => (
+              <li key={level} className="flex items-center gap-2">
+                <span className={cn("h-2 w-2 rounded-full", LIVE_FRESHNESS_DOT[level])} />
+                <span className="text-[0.62rem] text-content-secondary">
+                  <span className="font-semibold text-content-primary">
+                    {LIVE_FRESHNESS_LABEL[level]}
+                  </span>{" "}
+                  — {LIVE_FRESHNESS_EXPLANATION[level]}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="divider-glass my-3" />
+          <p className="text-[0.6rem] leading-relaxed text-content-secondary">
+            Pins appear only for centres that published coordinates. District headquarters are used
+            to frame the map, never as a centre's location.
           </p>
         </div>
 
-        {/* AI Saathi Floating Button */}
-        <div className="absolute bottom-6 right-6 z-[1000]">
+        <div className="absolute bottom-4 left-4 right-4 z-[1000] rounded-2xl border border-line bg-white/90 px-4 py-3 shadow-lg backdrop-blur-md sm:right-auto sm:max-w-xl">
+          <p className="text-[0.62rem] font-semibold leading-relaxed text-content-primary">
+            {disclaimer}
+          </p>
+          <p className="mt-1 text-[0.58rem] leading-relaxed text-content-secondary">
+            MEDIPAL does not reserve, hold or guarantee any unit. This is reported availability with
+            its source and time shown on every row.
+          </p>
+        </div>
+
+        <div className="absolute bottom-24 right-4 z-[1000]">
           <Link
             to="/ai-doctor"
             aria-label="Ask Al Saathi, the MEDIPAL AI assistant"
-            className="flex items-center gap-3 rounded-full bg-[#0B1B2B] px-6 py-3 text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
+            className="flex items-center gap-3 rounded-full bg-[#17171C] px-5 py-3 text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-crimson">
-              <MessageSquare className="h-4 w-4 text-white" aria-hidden />
-            </div>
-            <div className="hidden text-left sm:block">
-              <p className="text-[0.6rem] font-bold uppercase tracking-widest text-white/70">
-                Al Saathi <span className="ml-2 rounded bg-crimson/20 px-1 py-0.5 text-[0.5rem] text-crimson">Patna</span>
-              </p>
-              <p className="text-[0.65rem] font-medium">Find Blood · Ask in Hindi/Eng</p>
-            </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-crimson">
+              <Send className="h-4 w-4 text-white" aria-hidden />
+            </span>
+            <span className="hidden text-left sm:block">
+              <span className="block text-[0.6rem] font-bold uppercase tracking-widest text-white/70">
+                Al Saathi
+              </span>
+              <span className="block text-[0.65rem] font-medium">Ask in Hindi or English</span>
+            </span>
           </Link>
         </div>
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Result card (§15, §16, §28)
+// ---------------------------------------------------------------------------
+
+function ResultCard({
+  row,
+  selected,
+  justChanged,
+  reduceMotion,
+  onSelect,
+}: {
+  row: LiveCentreRow;
+  selected: boolean;
+  justChanged: boolean;
+  reduceMotion: boolean;
+  onSelect: () => void;
+}) {
+  const distance = formatDistance(row.distanceKm);
+  const confirmed = row.freshness === "LIVE" || row.freshness === "RECENT";
+  const phone = row.phone || row.emergencyHotline;
+
+  return (
+    <article
+      onClick={onSelect}
+      className={cn(
+        "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
+        selected
+          ? "border-crimson bg-white ring-1 ring-crimson/10"
+          : "border-line bg-white/60 hover:border-crimson/30 hover:bg-white",
+        justChanged && !reduceMotion && "animate-[pulseRing_1.8s_ease-out_1]",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-content-secondary/70">
+            {row.category}
+          </p>
+          <h3 className="mt-1 truncate font-display text-base font-semibold text-content-primary">
+            {row.name}
+          </h3>
+          <p className="mt-0.5 text-[0.68rem] text-content-secondary">
+            {[row.district, row.address].filter(Boolean).join(" · ") || "Address not recorded"}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          {distance ? (
+            <p className="text-sm font-bold text-content-primary">{distance.replace(" away", "")}</p>
+          ) : (
+            <p className="text-[0.6rem] uppercase tracking-widest text-content-secondary/60">
+              Distance
+              <br />
+              not known
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-wider",
+            LIVE_FRESHNESS_TONE[row.freshness],
+          )}
+        >
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              LIVE_FRESHNESS_DOT[row.freshness],
+              row.freshness === "LIVE" && !reduceMotion && "animate-pulse",
+            )}
+          />
+          {LIVE_FRESHNESS_LABEL[row.freshness]}
+        </span>
+        <span className="rounded-full border border-line bg-white/70 px-2.5 py-1 text-[0.6rem] font-semibold text-content-secondary">
+          {AVAILABILITY_STATUS_LABEL[row.availabilityStatus]}
+        </span>
+        {!confirmed && row.units > 0 && (
+          <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[0.6rem] font-semibold text-amber-800">
+            Not confirmed
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-xl bg-blush-soft/60 p-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-content-primary">
+            {row.bloodGroup} · {row.component}
+          </p>
+          <p className="mt-0.5 text-[0.62rem] text-content-secondary">
+            Last updated {relativeTime(row.lastUpdatedAt)}
+            {row.lastUpdatedAt ? ` · ${absoluteTime(row.lastUpdatedAt)}` : ""}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p
+            className={cn(
+              "font-display text-xl font-bold",
+              row.units > 0 && confirmed ? "text-crimson" : "text-content-secondary/60",
+            )}
+          >
+            {row.units}
+            <span className="ml-1 text-[0.6rem] font-medium uppercase tracking-normal">
+              {row.unit}
+            </span>
+          </p>
+          <p className="text-[0.58rem] uppercase tracking-widest text-content-secondary/70">
+            {confirmed ? "reported available" : "unconfirmed"}
+          </p>
+        </div>
+      </div>
+
+      {/* Source + verification (§16, §28) — always shown, never omitted. */}
+      <div className="mt-3 flex items-start gap-2 text-[0.62rem] leading-relaxed text-content-secondary">
+        <span className="mt-[0.15rem] shrink-0 font-semibold uppercase tracking-wider text-content-secondary/70">
+          Source
+        </span>
+        <span className="min-w-0">
+          {row.source.url ? (
+            <a
+              href={row.source.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={(event) => event.stopPropagation()}
+              className="inline-flex items-center gap-1 font-medium text-crimson hover:underline"
+            >
+              {row.source.label}
+              <ExternalLink className="h-3 w-3" aria-hidden />
+            </a>
+          ) : (
+            <span className="font-medium text-content-primary">{row.source.label}</span>
+          )}
+          <span className="ml-1">
+            · {row.isProviderSynced ? "authorised feed" : "not from an authorised feed"}
+          </span>
+        </span>
+      </div>
+
+      {row.verification === "provider_authorized" && (
+        <p className="mt-1 text-[0.6rem] uppercase tracking-wider text-ok">
+          Centre identity supplied by the source itself
+        </p>
+      )}
+
+      <p className="mt-2 text-[0.62rem] leading-relaxed text-content-secondary/80">
+        {LIVE_FRESHNESS_EXPLANATION[row.freshness]}
+      </p>
+
+      <div className="mt-4 flex items-center gap-3">
+        <a
+          href={phone ? `tel:${phone.replace(/\s+/g, "")}` : undefined}
+          onClick={(event) => event.stopPropagation()}
+          aria-disabled={!phone}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition-colors",
+            phone
+              ? "bg-content-primary text-white hover:bg-black"
+              : "cursor-not-allowed border border-line bg-white/60 text-content-secondary/50",
+          )}
+        >
+          <Phone className="h-3.5 w-3.5" aria-hidden />
+          {phone ? "Call centre" : "No phone recorded"}
+        </a>
+        <a
+          href={
+            row.coordinates
+              ? `https://www.openstreetmap.org/?mlat=${row.coordinates[0]}&mlon=${row.coordinates[1]}#map=16/${row.coordinates[0]}/${row.coordinates[1]}`
+              : undefined
+          }
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={(event) => event.stopPropagation()}
+          aria-disabled={!row.coordinates}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-xs font-medium transition-colors",
+            row.coordinates
+              ? "border-line bg-white text-content-primary hover:bg-blush-soft"
+              : "cursor-not-allowed border-line bg-white/60 text-content-secondary/50",
+          )}
+        >
+          <Navigation className="h-3.5 w-3.5" aria-hidden />
+          {row.coordinates ? "Directions" : "No coordinates"}
+        </a>
+      </div>
+
+      <p className="mt-3 border-t border-line/60 pt-3 text-[0.6rem] leading-relaxed text-content-secondary/80">
+        {row.disclaimer}
+      </p>
+    </article>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className="space-y-4" aria-hidden>
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="rounded-2xl border border-line bg-white/50 p-5">
+          <div className="h-3 w-24 animate-pulse rounded bg-line" />
+          <div className="mt-3 h-4 w-56 animate-pulse rounded bg-line" />
+          <div className="mt-3 h-3 w-40 animate-pulse rounded bg-line" />
+          <div className="mt-4 h-16 animate-pulse rounded-xl bg-blush-soft" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Marker fill colour, as a literal hex so Leaflet never re-encodes it. */
+function dotHex(level: LiveCentreRow["freshness"]): string {
+  switch (level) {
+    case "LIVE":
+      return "#10b981";
+    case "RECENT":
+      return "#f59e0b";
+    case "STALE":
+      return "#d97706";
+    case "OUTDATED":
+      return "#dc2626";
+    default:
+      return "#94a3b8";
+  }
+}
+
+/** Leaflet popups accept HTML, so provider text must be escaped first. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

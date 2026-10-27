@@ -1,16 +1,16 @@
 /** Shared motion + colour constants used across DOM and WebGL code. */
 
 export const colors = {
-  red: "#0B5FA5",
-  redBright: "#2E86DE",
-  redSoft: "#0A3D75",
+  red: "#E91E4D",
+  redBright: "#F04452",
+  redSoft: "#C2183A",
   /** Burgundy is used only for WebGL depth, contact shadows and vignettes. */
-  burgundy: "#062A4E",
-  blink: "#E3EEF9",
-  blush: "#F4F8FC",
-  ink: "#0B1B2B",
-  textSecondary: "#55697D",
-  line: "#DDE5EE",
+  burgundy: "#4C1028",
+  blink: "#FFE7ED",
+  blush: "#FFF5F7",
+  ink: "#17171C",
+  textSecondary: "#686873",
+  line: "#E8DDE1",
   silver: "#D9DCE5",
   pearl: "#F7F8FB",
 } as const;

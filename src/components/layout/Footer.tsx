@@ -17,6 +17,7 @@ const platformLinks = [
   { label: "Availability Search", to: "/#availability-search" },
   { label: "Facility console", to: "/blood-bank/facility" },
   { label: "Platform admin", to: "/blood-bank/admin" },
+  { label: "Blood data sync", to: "/admin/blood-data" },
 ];
 
 export function Footer() {

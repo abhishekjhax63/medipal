@@ -9,6 +9,10 @@ import {
   LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import {
+  LIVE_FRESHNESS_DOT,
+  LIVE_FRESHNESS_LABEL,
+} from "@/lib/blood/presentation";
 import { LiveFindBlood } from "@/components/blood-bank/live/LiveFindBlood";
 import { LiveInventory } from "@/components/blood-bank/live/LiveInventory";
 import { LiveShortages } from "@/components/blood-bank/live/LiveShortages";
@@ -45,7 +49,7 @@ export default function BloodBridgeLivePage() {
                 </h1>
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-content-secondary">
                   <MapPin className="h-3.5 w-3.5 text-crimson" />
-                  Patna Healthcare Grid · Real-time Coordination
+                  Bihar · Reported availability from centres that publish it
                 </p>
               </div>
             </div>
@@ -96,26 +100,31 @@ export default function BloodBridgeLivePage() {
         </Reveal>
       </div>
 
-      {/* Patna Network Status Banner */}
+      {/* Freshness legend (§5) + honesty statement (§28) */}
       <div className="section-shell mt-8">
         <Reveal delay={0.2}>
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-white/50 px-6 py-4 backdrop-blur-md">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                <span className="text-xs font-medium text-content-secondary uppercase tracking-wider">Recently verified (&lt;4h)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                <span className="text-xs font-medium text-content-secondary uppercase tracking-wider">Update due (4-12h)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-crimson shadow-[0_0_8px_rgba(11,95,165,0.5)]" />
-                <span className="text-xs font-medium text-content-secondary uppercase tracking-wider">Stale / Unconfirmed</span>
-              </div>
+          <div className="rounded-2xl border border-line bg-white/50 px-6 py-4 backdrop-blur-md">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              {(["LIVE", "RECENT", "STALE", "OUTDATED", "UNKNOWN"] as const).map((level) => (
+                <div key={level} className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      LIVE_FRESHNESS_DOT[level],
+                      level === "LIVE" && "animate-pulse",
+                    )}
+                  />
+                  <span className="text-xs font-medium uppercase tracking-wider text-content-secondary">
+                    {LIVE_FRESHNESS_LABEL[level]}
+                  </span>
+                </div>
+              ))}
             </div>
-            <p className="text-[0.7rem] font-medium text-crimson uppercase tracking-[0.1em]">
-              DEMO DATA — NOT LIVE HOSPITAL INVENTORY
+            <p className="mt-3 border-t border-line pt-3 text-[0.7rem] leading-relaxed text-content-secondary">
+              Reported availability, not a reservation. MEDIPAL shows a figure as{" "}
+              <span className="font-semibold text-content-primary">LIVE</span> only when an
+              authorised feed observed it in the last 30 minutes. Please call the blood centre to
+              confirm before travelling.
             </p>
           </div>
         </Reveal>

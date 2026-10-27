@@ -92,9 +92,9 @@ export function BloodNetworkMap() {
       bounds.push([lat, lng]);
       const marker = L.circleMarker([lat, lng], {
         radius: 7,
-        color: "#0A3D75",
+        color: "#C2183A",
         weight: 2,
-        fillColor: "#0B5FA5",
+        fillColor: "#E91E4D",
         fillOpacity: 0.75,
       });
       marker.bindPopup(

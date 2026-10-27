@@ -230,7 +230,12 @@ async function requireFacility(request) {
   return { facility: facility.rows[0], facilityId };
 }
 
-function requireAdmin(request) {
+/**
+ * Guards the platform-admin surface. Shared with the live-availability router
+ * (`server/blood/live-routes.mjs`) so both admin consoles accept exactly one
+ * credential and enforce it in exactly one place.
+ */
+export function requireAdmin(request) {
   if (!config.blood.adminKey) {
     throw new HttpError(
       503,
@@ -992,8 +997,12 @@ async function facilityMe(facilityId) {
     // Being explicit here is the point: the console must never imply the
     // platform vouches for figures it has not verified.
     provenance:
-      "Figures you publish are attributed to your facility as self-reported and are shown " +
-      "to the public with that label and the time you last updated them.",
+      attributionSource(facility.rows[0]) === "blood_centre_verified"
+        ? "Figures you publish are attributed to your centre as a verified self-report and are shown " +
+          "to the public with that label and the time you last updated them. They never replace an " +
+          "official authorised feed's figure — where the two disagree, both remain visible."
+        : "Figures you publish are attributed to your facility as self-reported and are shown " +
+          "to the public with that label and the time you last updated them.",
   };
 }
 
@@ -1043,7 +1052,28 @@ async function recordMovement(client, entry) {
   );
 }
 
-async function reportStock(facilityId, body, actor) {
+/**
+ * Which provenance a manual console write is attributed to (§22, §23).
+ *
+ * An approved centre that operates a blood bank and has a licence on file is a
+ * *verified* centre, so its stock is published as `blood_centre_verified`
+ * (priority 30). Anything else — a pending applicant, a directory entry that
+ * does not operate a blood bank — stays `facility_self_report` (priority 100).
+ *
+ * Either id ranks BELOW an official authorised feed (priority 10), so a manual
+ * entry can never overwrite a provider figure: the two rows coexist and the
+ * availability API applies the priority order. This function chooses a label;
+ * it never touches a provider's numbers.
+ */
+function attributionSource(facility) {
+  const verified =
+    facility.status === "approved" &&
+    facility.has_blood_bank === true &&
+    Boolean(facility.license_number);
+  return verified ? "blood_centre_verified" : "facility_self_report";
+}
+
+async function reportStock(facilityId, body, actor, sourceId) {
   const bloodGroup = oneOf(body.bloodGroup, "Blood group", BLOOD_GROUPS);
   const component = oneOf(body.component, "Component", COMPONENTS);
   const quantity = integer(body.quantity, "Quantity", { min: 0, max: 100_000 });
@@ -1072,12 +1102,12 @@ async function reportStock(facilityId, body, actor) {
         `update blood_inventory
             set quantity = $2, unit = $3, collection_date = $4, expiry_date = $5,
                 storage_location = $6, status = $7, notes = $8, reported_by = $9,
-                data_source_id = 'facility_self_report', last_updated_at = now()
+                data_source_id = $10, last_updated_at = now()
           where id = $1
           returning *`,
         [
           row.id, quantity, unit, collectionDate, expiryDate,
-          storageLocation, status, notes, actor,
+          storageLocation, status, notes, actor, sourceId,
         ],
       );
       await recordMovement(client, {
@@ -1099,11 +1129,11 @@ async function reportStock(facilityId, body, actor) {
       `insert into blood_inventory
          (facility_id, blood_group, component, quantity, unit, batch_number, collection_date,
           expiry_date, storage_location, status, notes, reported_by, data_source_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'facility_self_report')
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        returning *`,
       [
         facilityId, bloodGroup, component, quantity, unit, batchNumber, collectionDate,
-        expiryDate, storageLocation, status, notes, actor,
+        expiryDate, storageLocation, status, notes, actor, sourceId,
       ],
     );
     await recordMovement(client, {
@@ -2401,7 +2431,7 @@ export async function handleBloodRoute(request, response, url) {
     }
     if (method === "POST" && tail === "inventory") {
       const body = await readJsonBody(request);
-      sendJson(response, 200, await reportStock(facilityId, body, actor));
+      sendJson(response, 200, await reportStock(facilityId, body, actor, attributionSource(facility)));
       return true;
     }
     if (method === "POST" && tail === "inventory/adjust") {

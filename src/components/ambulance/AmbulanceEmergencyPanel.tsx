@@ -89,7 +89,7 @@ export function AmbulanceEmergencyPanel({ className }: { className?: string }) {
       )}
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#2E86DE,#0A3D75)] text-white shadow-glow-red-sm">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#f04452,#c2183a)] text-white shadow-glow-red-sm">
           <ShieldAlert className="h-5 w-5" aria-hidden />
         </span>
         <div className="min-w-0">

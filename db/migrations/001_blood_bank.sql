@@ -455,7 +455,11 @@ create index if not exists blood_audit_logs_entity_idx
 -- Public availability view — the ONLY surface exposed to unauthenticated reads.
 -- Contains no contact columns.
 -- -----------------------------------------------------------------------------
-create or replace view blood_public_availability
+-- Dropped and recreated rather than `create or replace`: later migrations widen
+-- this view's column set, and REPLACE cannot remove a column it already has, so
+-- a re-run of this file would otherwise fail. The view owns no data.
+drop view if exists blood_public_availability;
+create view blood_public_availability
 with (security_invoker = true) as
 select
   f.id                                as facility_id,

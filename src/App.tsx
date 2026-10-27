@@ -14,6 +14,7 @@ import BloodBankPage from "@/pages/BloodBankPage";
 import BloodBridgeLivePage from "@/pages/blood-bank/BloodBridgeLivePage";
 import AdminConsolePage from "@/pages/blood-bank/AdminConsolePage";
 import FacilityConsolePage from "@/pages/blood-bank/FacilityConsolePage";
+import BloodDataAdminPage from "@/pages/admin/BloodDataAdminPage";
 import ContactPage from "@/pages/ContactPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import EUpcharHomePage from "@/pages/eupchar/EUpcharHomePage";
@@ -80,6 +81,7 @@ function AppShell() {
               {/* Blood Bank operator consoles — facility stock management and platform administration. */}
               <Route path="/blood-bank/facility" element={<FacilityConsolePage />} />
               <Route path="/blood-bank/admin" element={<AdminConsolePage />} />
+              <Route path="/admin/blood-data" element={<BloodDataAdminPage />} />
 
               {/* E-UPCHAR — hospital discovery, diagnostics booking and patient management. */}
               <Route path="/e-upchar" element={<EUpcharHomePage />} />

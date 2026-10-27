@@ -60,7 +60,7 @@ function ShellMaterial() {
       clearcoat={1}
       clearcoatRoughness={0.16}
       sheen={0.65}
-      sheenColor="#D6E9F7"
+      sheenColor="#FFD6E2"
       sheenRoughness={0.55}
       reflectivity={0.5}
       envMapIntensity={1.15}
@@ -73,11 +73,11 @@ function SilverMaterial() {
   return <meshStandardMaterial color={colors.silver} metalness={0.92} roughness={0.2} envMapIntensity={1.25} />;
 }
 
-/** Subtle translucent glass for the visor and the chest aperture. */
+/** Subtle translucent blush glass for the visor and the chest aperture. */
 function GlassMaterial() {
   return (
     <meshPhysicalMaterial
-      color="#C9E3F7"
+      color="#FFC9D9"
       transmission={0.9}
       thickness={0.6}
       ior={1.45}
@@ -92,19 +92,19 @@ function GlassMaterial() {
   );
 }
 
-/** Warm-neutral studio key/fill/rim rig with an aqua accent (no remote assets). */
+/** Warm-neutral studio key/fill/rim rig with a crimson accent (no remote assets). */
 function Lights() {
   return (
     <>
-      <ambientLight intensity={0.55} color="#F6FAFF" />
-      <hemisphereLight intensity={0.5} color="#FFFFFF" groundColor="#E7EEF4" />
+      <ambientLight intensity={0.55} color="#FFF6F8" />
+      <hemisphereLight intensity={0.5} color="#FFFFFF" groundColor="#F4E7EC" />
       {/* Key */}
       <directionalLight position={[3.4, 4.8, 4.2]} intensity={2.1} color="#FFFFFF" />
       {/* Fill */}
-      <directionalLight position={[-3.8, 1.4, 2.8]} intensity={0.72} color="#EAF3FF" />
-      {/* Blue / aqua rim accents */}
+      <directionalLight position={[-3.8, 1.4, 2.8]} intensity={0.72} color="#FFEAF0" />
+      {/* Crimson rim accents */}
       <pointLight position={[-2.6, 1.6, -2.8]} intensity={12} distance={11} color={colors.redBright} />
-      <pointLight position={[3, -0.6, -2.4]} intensity={8} distance={11} color="#7FD8E0" />
+      <pointLight position={[3, -0.6, -2.4]} intensity={8} distance={11} color="#FF9CB8" />
       {/* Soft top */}
       <pointLight position={[0, 2.8, 1.2]} intensity={6} distance={12} color="#FFFFFF" />
     </>
@@ -140,7 +140,7 @@ function RobotModel({ pointerRef, reducedMotion, thinking = false }: AISceneProp
     () => ({
       crimsonSoft: new THREE.Color(colors.redSoft),
       brightRed: new THREE.Color(colors.redBright),
-      pink: new THREE.Color("#6EC5FF"),
+      pink: new THREE.Color("#FF6E93"),
       restColour: new THREE.Color(colors.red),
       idleCore: new THREE.Color(colors.red),
       warmCore: new THREE.Color(colors.redBright),
@@ -510,7 +510,7 @@ export default function AIScene({ pointerRef, reducedMotion, thinking = false }:
     >
       <Lights />
       <Environment resolution={256} frames={1}>
-        <color attach="background" args={["#F6FAFF"]} />
+        <color attach="background" args={["#FFF6F8"]} />
         <Lightformer
           form="rect"
           intensity={2.6}
@@ -522,7 +522,7 @@ export default function AIScene({ pointerRef, reducedMotion, thinking = false }:
         <Lightformer
           form="rect"
           intensity={1.5}
-          color="#EAF3FF"
+          color="#FFEAF0"
           position={[-4.4, 1, 2.6]}
           scale={[4, 5, 1]}
           target={[0, 0, 0]}
@@ -530,7 +530,7 @@ export default function AIScene({ pointerRef, reducedMotion, thinking = false }:
         <Lightformer
           form="rect"
           intensity={1.3}
-          color="#CFE6FF"
+          color="#FFD3E0"
           position={[4.4, 0.4, 2.4]}
           scale={[4, 5, 1]}
           target={[0, 0, 0]}

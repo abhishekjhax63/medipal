@@ -468,3 +468,282 @@ export interface AdminSession {
   configured: boolean;
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// Bihar live availability (§5, §11-§17, §25)
+// ---------------------------------------------------------------------------
+// These mirror the shapes `server/blood/live-routes.mjs` returns. Freshness is
+// always computed on the server from the source's own observation time and
+// sent as a verdict; the browser never re-derives it, so a client clock that is
+// wrong cannot make stale stock look fresh.
+
+/** The freshness ladder from §5. Only `LIVE` may be presented as current. */
+export type LiveFreshnessLevel = "LIVE" | "RECENT" | "STALE" | "OUTDATED" | "UNKNOWN";
+
+/** The status the source itself reported (§4). Never guessed by the browser. */
+export type AvailabilityStatus = "AVAILABLE" | "LOW" | "UNAVAILABLE" | "UNKNOWN";
+
+/** Minutes; the boundaries between LIVE / RECENT / STALE / OUTDATED. */
+export interface FreshnessThresholds {
+  live: number;
+  recent: number;
+  stale: number;
+}
+
+/** The provenance block every result row carries (§16, §28). */
+export interface LiveDataSourceRef {
+  id: string;
+  label: string;
+  priority: number;
+  verificationStatus: string;
+  url: string | null;
+  note: string | null;
+}
+
+/** One centre × blood group × component figure, with provenance and freshness. */
+export interface LiveCentreRow {
+  centreId: string;
+  reference: string;
+  externalId: string | null;
+  name: string;
+  category: string;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  state: string;
+  postalCode: string | null;
+  coordinates: [number, number] | null;
+  phone: string | null;
+  emergencyHotline: string | null;
+  verification: string;
+  bloodGroup: string;
+  component: string;
+  units: number;
+  unit: string;
+  availabilityStatus: AvailabilityStatus;
+  freshness: LiveFreshnessLevel;
+  /** The source's own observation time — the basis of the freshness verdict. */
+  lastUpdatedAt: string | null;
+  /** When MEDIPAL wrote the row. Never used to claim LIVE. */
+  syncedAt: string | null;
+  isProviderSynced: boolean;
+  batchCount: number;
+  nearestExpiryDate: string | null;
+  distanceKm: number | null;
+  source: LiveDataSourceRef;
+  disclaimer: string;
+}
+
+export interface BiharDistrict {
+  id: string;
+  name: string;
+  state: string;
+  /** Administrative headquarters, for map centring only — not a centre. */
+  centre: [number, number] | null;
+  approvedCentres: number;
+}
+
+export interface DistrictsResponse {
+  state: string;
+  count: number;
+  districts: BiharDistrict[];
+  note: string;
+}
+
+export type CentreSort = "priority" | "emergency" | "distance" | "freshness";
+
+export interface CentresResponse {
+  query: {
+    state: string;
+    district: string | null;
+    bloodGroup: string | null;
+    component: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    radiusKm: number | null;
+    sortBy: CentreSort;
+    limit: number;
+  };
+  thresholdsMinutes: FreshnessThresholds;
+  counts: { rows: number; shown: number; centres: number };
+  results: LiveCentreRow[];
+  truncated: boolean;
+  generatedAt: string;
+  disclaimer: string;
+  notice: string;
+}
+
+export interface NearbyCentresResponse {
+  origin: { latitude: number; longitude: number };
+  radiusKm: number;
+  query: { bloodGroup: string | null; component: string | null };
+  counts: { centres: number; rows: number };
+  results: LiveCentreRow[];
+  truncated: boolean;
+  generatedAt: string;
+  disclaimer: string;
+  notice: string;
+}
+
+export type ProviderHealthState =
+  | "healthy"
+  | "degraded"
+  | "offline"
+  | "not_configured"
+  | "unknown"
+  | string;
+
+export interface ProviderHealthSource {
+  id: string;
+  label: string;
+  enabled: boolean;
+  configured: boolean;
+  priority: number;
+  mode: "pull" | "push" | string;
+  health: ProviderHealthState;
+  healthMessage: string | null;
+  lastSuccessfulSync: string | null;
+  lastFailedSync: string | null;
+  lastHealthCheckAt: string | null;
+  baseUrlConfigured: boolean;
+  verificationStatus: string;
+}
+
+export interface BloodHealthResponse {
+  status: ProviderHealthState;
+  generatedAt: string;
+  syncIntervalMinutes: number;
+  thresholdsMinutes: FreshnessThresholds;
+  lastSuccessfulSync: string | null;
+  nextSyncInMinutes: number | null;
+  sources: ProviderHealthSource[];
+  records: { total: number; providerRows: number; live: number };
+  /** The most recent run of any provider, or `null` if none has ever run. */
+  lastRun: SyncRunSummary | null;
+  notice: string;
+}
+
+export interface SchedulerStatus {
+  running: boolean;
+  busy: boolean;
+  intervalMinutes: number;
+  lastTickAt: string | null;
+  lastResults: { provider: string | null; status: string; message: string | null }[] | null;
+  thresholdsMinutes: FreshnessThresholds;
+}
+
+export interface BloodDataOverview {
+  centres: {
+    total: number;
+    approved: number;
+    fromProviders: number;
+    fromVerifiedCentres: number;
+  };
+  inventory: {
+    rows: number;
+    centresWithStock: number;
+    providerRows: number;
+    liveRows: number;
+    staleRows: number;
+    unavailableRows: number;
+    unknownRows: number;
+  };
+  sync: {
+    runsLastSevenDays: number;
+    succeeded: number;
+    failed: number;
+    /** `null` when nothing has been attempted — never a fabricated 100%. */
+    successRate: number | null;
+    lastSuccessfulSync: string | null;
+    lastAttemptAt: string | null;
+  };
+  thresholdsMinutes: FreshnessThresholds;
+  intervalMinutes: number;
+  generatedAt: string;
+}
+
+export interface SyncRunError {
+  externalId: string | null;
+  type: string;
+  message: string;
+  excerpt: unknown;
+  at: string;
+}
+
+export interface SyncRunRecord {
+  runId: string;
+  provider: string;
+  status: "running" | "success" | "partial" | "failed" | "skipped" | string;
+  startedAt: string | null;
+  completedAt: string | null;
+  recordsReceived: number | null;
+  recordsInserted: number | null;
+  recordsUpdated: number | null;
+  recordsUnchanged: number | null;
+  recordsFailed: number | null;
+  centresUpserted: number | null;
+  requestAttempts: number | null;
+  durationMs: number | null;
+  message: string | null;
+  errors: SyncRunError[];
+}
+
+export interface SyncRunsResponse {
+  runs: SyncRunRecord[];
+  providerFilter: string | null;
+  generatedAt: string;
+}
+
+/** A run as stored, without the per-record error list the admin view adds. */
+export type SyncRunSummary = Omit<SyncRunRecord, "runId" | "errors">;
+
+export interface BloodDataAdminResponse {
+  overview: BloodDataOverview;
+  health: BloodHealthResponse;
+  scheduler: SchedulerStatus;
+}
+
+/** The outcome the admin "Run sync now" button reports back. */
+export interface SyncRunResult {
+  provider: string;
+  runId: string | null;
+  status: string;
+  message: string | null;
+  records: {
+    received: number;
+    inserted: number;
+    updated: number;
+    unchanged: number;
+    failed: number;
+    notRestated: number;
+  };
+  centresUpserted: number;
+  durationMs: number;
+  subscribers: number;
+  note: string;
+}
+
+/** A single event pushed over `GET /api/blood/stream` (§11-§13). */
+export interface LiveStreamEvent {
+  type: "hello" | "inventory.change" | "sync.completed" | "sync.failed" | string;
+  at: string;
+  /** Present on `hello`. */
+  subscribers?: number;
+  note?: string;
+  /** Present on `inventory.change`. */
+  change?: "inserted" | "updated";
+  facilityId?: string;
+  bloodGroup?: string;
+  component?: string;
+  previousUnits?: number;
+  units?: number;
+  availabilityStatus?: AvailabilityStatus;
+  sourceUpdatedAt?: string | null;
+  source?: string;
+  /** Present on `sync.*`. */
+  provider?: string;
+  runId?: string;
+  status?: string;
+  message?: string;
+  replayed?: boolean;
+}

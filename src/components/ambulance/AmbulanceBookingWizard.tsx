@@ -1168,7 +1168,7 @@ function StepPatient({
       >
         <input
           type="checkbox"
-          className="mt-0.5 h-4 w-4 accent-[#0b5fa5]"
+          className="mt-0.5 h-4 w-4 accent-[#e91e4d]"
           checked={data.consentToShare}
           onChange={(event) => update({ consentToShare: event.target.checked })}
         />

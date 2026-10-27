@@ -67,7 +67,15 @@ grant execute on function blood_resolve_facility_token(text) to medipal_api;
 -- Derived status: an inventory row whose expiry has passed is expired even if
 -- nobody has run a housekeeping job. Keeps the search honest without a cron.
 -- -----------------------------------------------------------------------------
-create or replace view blood_inventory_effective
+-- Both views are dropped first, in dependency order. `blood_inventory_effective`
+-- selects `i.*`, so its column list follows `blood_inventory`'s — and migration
+-- 006 adds a column to that table. REPLACE cannot rename or reorder an existing
+-- view's columns, so without these drops a re-run fails with "cannot change name
+-- of view column". Views own no data, and both are rebuilt below.
+drop view if exists blood_public_availability;
+drop view if exists blood_inventory_effective;
+
+create view blood_inventory_effective
 with (security_invoker = true) as
 select
   i.*,
@@ -83,7 +91,7 @@ grant select on blood_inventory_effective to medipal_api;
 -- Re-point the public availability view at the derived status so that units
 -- whose expiry date has already passed can never be counted as available, even
 -- if no housekeeping job has run.
-create or replace view blood_public_availability
+create view blood_public_availability
 with (security_invoker = true) as
 select
   f.id                                as facility_id,

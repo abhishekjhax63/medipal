@@ -120,7 +120,7 @@ export function GlassNavbar() {
                   <motion.span
                     layoutId="medipal-experience-pill"
                     transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-                    className="absolute inset-0 -z-10 rounded-full bg-[linear-gradient(120deg,#2E86DE,#0B5FA5_58%,#0A3D75)] shadow-[0_12px_26px_-14px_rgba(11,95,165,0.85)]"
+                    className="absolute inset-0 -z-10 rounded-full bg-[linear-gradient(120deg,#f04452,#e91e4d_58%,#c2183a)] shadow-[0_12px_26px_-14px_rgba(233,30,77,0.85)]"
                   />
                 )}
                 {!isActive && (

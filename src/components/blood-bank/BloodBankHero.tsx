@@ -18,10 +18,10 @@ export function BloodBankHero() {
     <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden pb-16 pt-28 sm:pt-32 lg:pb-24">
       {/* Atmospheric blush / crimson illumination on the light foundation */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(118%_82%_at_16%_-12%,rgba(11,95,165,0.14),transparent_58%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(72%_62%_at_92%_16%,rgba(227,238,249,0.72),transparent_60%)]" />
-        <div className="absolute -left-24 top-8 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(circle,rgba(46,134,222,0.16),transparent_66%)] blur-3xl motion-safe:animate-drift-glow" />
-        <div className="absolute -right-32 bottom-0 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(10,61,117,0.14),transparent_68%)] blur-3xl motion-safe:animate-drift-glow [animation-delay:-9s]" />
+        <div className="absolute inset-0 bg-[radial-gradient(118%_82%_at_16%_-12%,rgba(233,30,77,0.14),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(72%_62%_at_92%_16%,rgba(255,231,237,0.72),transparent_60%)]" />
+        <div className="absolute -left-24 top-8 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(circle,rgba(240,68,82,0.16),transparent_66%)] blur-3xl motion-safe:animate-drift-glow" />
+        <div className="absolute -right-32 bottom-0 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(194,24,58,0.14),transparent_68%)] blur-3xl motion-safe:animate-drift-glow [animation-delay:-9s]" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent" />
       </div>
 

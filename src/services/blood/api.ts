@@ -14,11 +14,15 @@ import type {
   AdminStats,
   AuditEntry,
   AvailabilityResponse,
+  BloodDataAdminResponse,
+  BloodHealthResponse,
   BloodInfo,
   BloodRequestInput,
   BloodRequestResult,
+  CentresResponse,
   ColdChainPassport,
   DirectoryFacility,
+  DistrictsResponse,
   DonorRegistrationInput,
   DonorRegistrationResult,
   DonorSummary,
@@ -32,8 +36,11 @@ import type {
   FacilityTransfer,
   InventoryItem,
   InventoryMovement,
+  NearbyCentresResponse,
   RequestStatus,
   SelfTestResult,
+  SyncRunResult,
+  SyncRunsResponse,
   TrackedRequest,
 } from "@/services/blood/types";
 
@@ -210,7 +217,48 @@ export const bloodApi = {
       "/api/blood/notifications",
       { signal },
     ),
+
+  // ---- Bihar live availability (§11-§13) -----------------------------------
+  // Served by `server/blood/live-routes.mjs`. Freshness is decided server-side
+  // from the source's own observation time; the browser only renders it.
+
+  /** The 38 Bihar districts, for the district selector and map centring. */
+  districts: (query?: { state?: string }, signal?: AbortSignal) =>
+    request<DistrictsResponse>("/api/blood/districts", { query, signal }),
+
+  /** Centres with their reported figures, provenance and freshness verdict. */
+  centres: (
+    query?: {
+      district?: string;
+      bloodGroup?: string;
+      component?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
+      sortBy?: "priority" | "emergency" | "distance" | "freshness";
+      limit?: number;
+    },
+    signal?: AbortSignal,
+  ) => request<CentresResponse>("/api/blood/centres", { query, signal }),
+
+  /** Centres around a coordinate, ranked for an emergency. */
+  liveNearby: (
+    query: { latitude: number; longitude: number; bloodGroup?: string; component?: string; radiusKm?: number; limit?: number },
+    signal?: AbortSignal,
+  ) => request<NearbyCentresResponse>("/api/blood/nearby", { query, signal }),
+
+  /** Which sources are configured, and how fresh their last delivery was. */
+  health: (signal?: AbortSignal) => request<BloodHealthResponse>("/api/blood/health", { signal }),
 };
+
+/**
+ * Absolute URL of the availability change stream. Returned as a string rather
+ * than an opened `EventSource` so the caller owns connect/close and can clean up
+ * on unmount. Nothing is fabricated: a silent stream means nothing changed.
+ */
+export function liveStreamUrl(): string {
+  return `${API_BASE}/api/blood/stream`;
+}
 
 // ---------------------------------------------------------------------------
 // Facility console — every call is scoped by the bearer token, never by an id
@@ -406,4 +454,25 @@ export const adminApi = {
       "/api/blood/admin/requests/status",
       { method: "POST", body, adminKey: key },
     ),
+
+  // ---- Bihar live availability console (§17, §25) --------------------------
+
+  /** Totals, provider health and scheduler state for `/admin/blood-data`. */
+  bloodData: (key: string, signal?: AbortSignal) =>
+    request<BloodDataAdminResponse>("/api/blood/admin/blood-data", { adminKey: key, signal }),
+
+  /** The sync log, newest first, with per-record failures attached. */
+  syncRuns: (key: string, query?: { limit?: number; provider?: string }, signal?: AbortSignal) =>
+    request<SyncRunsResponse>("/api/blood/admin/sync-runs", { adminKey: key, query, signal }),
+
+  /**
+   * Runs one source's sync on demand. The source must be named — MEDIPAL will
+   * not guess which feed an operator meant. Requires an authorised admin key.
+   */
+  runSync: (key: string, provider: string) =>
+    request<SyncRunResult>("/api/blood/admin/sync/run", {
+      method: "POST",
+      query: { provider },
+      adminKey: key,
+    }),
 };

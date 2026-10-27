@@ -7,11 +7,75 @@
  */
 
 import type {
+  AvailabilityStatus,
   FreshnessStatus,
   InventoryStatus,
+  LiveFreshnessLevel,
   RequestStatus,
   FacilityStatus,
 } from "@/services/blood/types";
+
+// ---------------------------------------------------------------------------
+// Bihar live availability (§5, §16)
+// ---------------------------------------------------------------------------
+// The server sends a freshness verdict per row. These helpers only choose words
+// and colours for it — they never re-grade a figure from the reader's clock, so
+// a device with a skewed clock cannot make stale stock look current.
+
+/** Tailwind classes per fresh level. Green ONLY for genuinely LIVE data. */
+export const LIVE_FRESHNESS_TONE: Record<LiveFreshnessLevel, string> = {
+  LIVE: "border-ok/30 bg-ok/10 text-ok",
+  RECENT: "border-warn/30 bg-warn/10 text-warn",
+  STALE: "border-warn/25 bg-warn/[0.07] text-content-secondary",
+  OUTDATED: "border-danger/25 bg-danger/[0.07] text-content-secondary",
+  UNKNOWN: "border-line bg-white/60 text-content-secondary",
+};
+
+/** Dot colour for the small animated freshness indicator. */
+export const LIVE_FRESHNESS_DOT: Record<LiveFreshnessLevel, string> = {
+  LIVE: "bg-emerald-500",
+  RECENT: "bg-amber-500",
+  STALE: "bg-amber-600",
+  OUTDATED: "bg-crimson",
+  UNKNOWN: "bg-content-secondary/30",
+};
+
+export const LIVE_FRESHNESS_LABEL: Record<LiveFreshnessLevel, string> = {
+  LIVE: "LIVE",
+  RECENT: "Recent",
+  STALE: "Stale",
+  OUTDATED: "Outdated",
+  UNKNOWN: "Not dated",
+};
+
+export const LIVE_FRESHNESS_EXPLANATION: Record<LiveFreshnessLevel, string> = {
+  LIVE: "The source observed this within the last 30 minutes.",
+  RECENT: "Reported 30-120 minutes ago. Worth a call before you travel.",
+  STALE: "Last observed between 2 and 6 hours ago. Treat as an indication only.",
+  OUTDATED: "Last observed more than 6 hours ago. Do not rely on this figure.",
+  UNKNOWN:
+    "The source did not date this figure, so MEDIPAL cannot say how current it is. It is not confirmed stock.",
+};
+
+/** True only for the level that may be presented as current (§5). */
+export function isConfirmedStock(level: LiveFreshnessLevel): boolean {
+  return level === "LIVE" || level === "RECENT";
+}
+
+/** The status the source itself reported, in plain words. */
+export const AVAILABILITY_STATUS_LABEL: Record<AvailabilityStatus, string> = {
+  AVAILABLE: "Reported available",
+  LOW: "Reported low",
+  UNAVAILABLE: "None reported",
+  UNKNOWN: "Status not stated",
+};
+
+export const AVAILABILITY_STATUS_TONE: Record<AvailabilityStatus, string> = {
+  AVAILABLE: "border-ok/30 bg-ok/10 text-ok",
+  LOW: "border-warn/30 bg-warn/10 text-warn",
+  UNAVAILABLE: "border-line bg-white/70 text-content-secondary",
+  UNKNOWN: "border-line bg-white/60 text-content-secondary",
+};
 
 /** Tailwind classes per freshness state — green only when genuinely fresh. */
 export const FRESHNESS_TONE: Record<FreshnessStatus, string> = {

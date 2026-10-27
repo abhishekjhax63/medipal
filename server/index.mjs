@@ -20,6 +20,8 @@ import { aiCapabilities, aiConfigured, requestChat } from "./ai.mjs";
 import { paymentsConfigured } from "./payments.mjs";
 import { geoConfigured, geocode, reverseGeocode, staticMap, nearbyPlaces } from "./geo.mjs";
 import { handleBloodRoute } from "./blood.mjs";
+import { handleLiveBloodRoute } from "./blood/live-routes.mjs";
+import { startScheduler } from "./blood/scheduler.mjs";
 import { handleAmbulanceRoute } from "./ambulance.mjs";
 import { handleEupcharRoute } from "./eupchar.mjs";
 import { databaseHealth } from "./db.mjs";
@@ -171,6 +173,15 @@ async function handleApi(request, response, url) {
     return true;
   }
 
+  // Bihar live-availability endpoints (§11-§13, §17, §25). Checked BEFORE the
+  // Geoapify directory branch below because both answer `/api/blood/nearby`:
+  // this router answers only when a coordinate is supplied and otherwise
+  // declines, letting a place-name search keep its directory listing.
+  if (url.pathname.startsWith("/api/blood/")) {
+    const handledLive = await handleLiveBloodRoute(request, response, url);
+    if (handledLive) return true;
+  }
+
   if (path === "/api/blood/nearby" && request.method === "GET") {
     const city = (url.searchParams.get("city") || "").trim();
     const state = (url.searchParams.get("state") || "").trim();
@@ -260,4 +271,7 @@ server.listen(config.port, () => {
     `MEDIPAL server listening on http://localhost:${config.port}  ·  ` +
       `ai=${status(readiness.ai)} payments=${status(readiness.payments)} maps=${status(readiness.maps)}`,
   );
+  // Starts the recurring Bihar availability sync. It is a no-op read until an
+  // authorised provider is configured, so it never invents stock (§2, §21).
+  startScheduler();
 });
