@@ -52,7 +52,7 @@ export function AboutSection() {
   return (
     <section aria-labelledby="about-heading" className="section-pad relative pt-32 sm:pt-40">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 left-1/2 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(233,30,77,0.12),transparent_70%)] blur-3xl" />
+        <div className="absolute -top-24 left-1/2 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(11,95,165,0.12),transparent_70%)] blur-3xl" />
       </div>
 
       <div className="section-shell relative">
@@ -78,7 +78,7 @@ export function AboutSection() {
             return (
               <Reveal key={pillar.id} delay={index * 0.07} className="h-full">
                 <GlassCard interactive hairline className="flex h-full flex-col p-6">
-                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(255,231,237,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(233,30,77,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
+                  <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(227,238,249,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(11,95,165,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
                     <Icon className="h-5 w-5 text-crimson" aria-hidden />
                   </span>
                   <h2 className="mt-5 font-display text-lg font-semibold text-content-primary">

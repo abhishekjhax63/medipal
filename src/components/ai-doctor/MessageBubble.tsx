@@ -27,7 +27,7 @@ export function MessageBubble({ message, demo = false, copied, onCopy }: Message
   return (
     <div className={cn("flex w-full gap-2.5", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-crimson/20 bg-white/85 text-crimson shadow-[0_10px_24px_-14px_rgba(225,29,72,0.7)]">
+        <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-crimson/20 bg-white/85 text-crimson shadow-[0_10px_24px_-14px_rgba(10,61,117,0.7)]">
           <Sparkles className="h-4 w-4" aria-hidden />
         </span>
       )}
@@ -44,9 +44,9 @@ export function MessageBubble({ message, demo = false, copied, onCopy }: Message
 
         <div
           className={cn(
-            "flex flex-col gap-2 whitespace-pre-wrap rounded-3xl px-4 py-3 text-sm leading-relaxed text-ink shadow-[0_18px_48px_-32px_rgba(76,16,40,0.65)]",
+            "flex flex-col gap-2 whitespace-pre-wrap rounded-3xl px-4 py-3 text-sm leading-relaxed text-ink shadow-[0_18px_48px_-32px_rgba(6,42,78,0.65)]",
             isUser
-              ? "rounded-br-lg border border-crimson/25 bg-[linear-gradient(135deg,rgba(255,49,87,0.14),rgba(225,29,72,0.2))] backdrop-blur-sm"
+              ? "rounded-br-lg border border-crimson/25 bg-[linear-gradient(135deg,rgba(46,134,222,0.14),rgba(10,61,117,0.2))] backdrop-blur-sm"
               : "glass-light rounded-bl-lg",
           )}
         >

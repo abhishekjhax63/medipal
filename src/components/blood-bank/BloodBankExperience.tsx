@@ -34,11 +34,11 @@ export function BloodBankExperience() {
           <div className="glass-panel glass-hairline relative overflow-hidden rounded-4xl px-7 py-12 sm:px-12 sm:py-14">
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_140%_at_12%_0%,rgba(233,30,77,0.14),transparent_58%)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_140%_at_12%_0%,rgba(11,95,165,0.14),transparent_58%)]"
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(233,30,77,0.16),transparent_68%)] blur-2xl"
+              className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(11,95,165,0.16),transparent_68%)] blur-2xl"
             />
 
             <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">

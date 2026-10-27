@@ -5,16 +5,18 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* Global MEDIPAL palette — white, blush pink, crimson. */
-    --medipal-crimson: #e91e4d;
-    --medipal-red: #f04452;
-    --medipal-red-soft: #c2183a;
-    --medipal-burgundy: #4c1028;
-    --medipal-blush: #ffe7ed;
-    --medipal-blush-soft: #fff5f7;
-    --medipal-ink: #17171c;
-    --medipal-muted: #686873;
-    --medipal-line: #e8dde1;
+    /* Global MEDIPAL palette — premium navy, deep blue with aqua accents,
+       on clean white and cool neutral surfaces. */
+    --medipal-crimson: #0b5fa5;
+    --medipal-red: #2e86de;
+    --medipal-red-soft: #0a3d75;
+    --medipal-burgundy: #062a4e;
+    --medipal-blush: #e3eef9;
+    --medipal-blush-soft: #f4f8fc;
+    --medipal-aqua: #0e9aa7;
+    --medipal-ink: #0b1b2b;
+    --medipal-muted: #55697d;
+    --medipal-line: #dde5ee;
     --medipal-surface: #ffffff;
   }
 
@@ -31,12 +33,12 @@
   }
 
   ::selection {
-    background: rgba(233, 30, 77, 0.18);
-    color: #17171c;
+    background: rgba(11, 95, 165, 0.18);
+    color: #0b1b2b;
   }
 
   :focus-visible {
-    outline: 2px solid rgba(233, 30, 77, 0.65);
+    outline: 2px solid rgba(11, 95, 165, 0.7);
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -55,7 +57,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(23, 23, 28, 0.16) transparent;
+    scrollbar-color: rgba(11, 27, 43, 0.16) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -68,52 +70,51 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(23, 23, 28, 0.14);
+    background: rgba(11, 27, 43, 0.14);
     border-radius: 9999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(233, 30, 77, 0.4);
+    background: rgba(11, 95, 165, 0.4);
     background-clip: content-box;
   }
 }
 
 @layer components {
-  /* ---------- Glass surfaces ----------
-     The whole application now sits on white / blush, so every glass
-     treatment is a frosted *light* surface with a hairline border. */
+  /* ---------- Surfaces ----------
+     Restrained, readable panels: a mostly-solid cool white surface with a
+     light frost and a hairline border, rather than heavy glassmorphism. */
   .glass-panel {
     position: relative;
     background: linear-gradient(
       152deg,
-      rgba(255, 255, 255, 0.86) 0%,
-      rgba(255, 255, 255, 0.68) 46%,
-      rgba(255, 245, 247, 0.78) 100%
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.88) 46%,
+      rgba(246, 249, 252, 0.92) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
     box-shadow:
-      0 20px 50px -28px rgba(76, 16, 40, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -1px 0 rgba(233, 30, 77, 0.04);
+      0 16px 40px -28px rgba(6, 42, 78, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
   .glass-panel-soft {
     position: relative;
     background: linear-gradient(
       160deg,
-      rgba(255, 255, 255, 0.78) 0%,
-      rgba(255, 255, 255, 0.58) 60%,
-      rgba(255, 245, 247, 0.68) 100%
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.8) 60%,
+      rgba(246, 249, 252, 0.86) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(12px) saturate(125%);
+    -webkit-backdrop-filter: blur(12px) saturate(125%);
     box-shadow:
-      0 14px 38px -24px rgba(76, 16, 40, 0.18),
+      0 12px 30px -24px rgba(6, 42, 78, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
@@ -122,15 +123,15 @@
     position: relative;
     background: linear-gradient(
       150deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.72) 48%,
-      rgba(255, 245, 248, 0.8) 100%
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(255, 255, 255, 0.88) 48%,
+      rgba(246, 249, 252, 0.92) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
     box-shadow:
-      0 24px 60px -30px rgba(76, 16, 40, 0.24),
+      0 20px 48px -30px rgba(6, 42, 78, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
@@ -143,8 +144,8 @@
     pointer-events: none;
     background: radial-gradient(
       420px circle at var(--mx, 50%) var(--my, 0%),
-      rgba(255, 255, 255, 0.85),
-      rgba(255, 231, 237, 0.35) 38%,
+      rgba(255, 255, 255, 0.9),
+      rgba(227, 238, 249, 0.4) 38%,
       transparent 68%
     );
     opacity: 0;
@@ -156,7 +157,7 @@
     opacity: 1;
   }
 
-  /* Thin crimson hairline along the top edge of a panel */
+  /* Thin brand hairline along the top edge of a panel */
   .glass-hairline::after {
     content: "";
     position: absolute;
@@ -169,9 +170,9 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(233, 30, 77, 0.5),
-      rgba(255, 255, 255, 0.9),
-      rgba(233, 30, 77, 0.5),
+      rgba(11, 95, 165, 0.5),
+      rgba(14, 154, 167, 0.75),
+      rgba(11, 95, 165, 0.5),
       transparent
     );
     opacity: 0.9;
@@ -179,7 +180,7 @@
 
   /* ---------- Typography helpers ---------- */
   .text-gradient-red {
-    background: linear-gradient(102deg, #f04452 0%, #e91e4d 48%, #c2183a 100%);
+    background: linear-gradient(102deg, #2e86de 0%, #0b5fa5 46%, #0e9aa7 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -197,33 +198,33 @@
 
   .btn-primary {
     @apply btn text-white;
-    background: linear-gradient(120deg, #f04452 0%, #e91e4d 52%, #c2183a 100%);
+    background: linear-gradient(120deg, #2e86de 0%, #0b5fa5 52%, #0a3d75 100%);
     box-shadow:
-      0 16px 36px -18px rgba(233, 30, 77, 0.7),
+      0 16px 34px -20px rgba(11, 95, 165, 0.65),
       inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   .btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow:
-      0 22px 46px -18px rgba(233, 30, 77, 0.85),
+      0 22px 44px -20px rgba(11, 95, 165, 0.8),
       inset 0 1px 0 rgba(255, 255, 255, 0.45);
   }
 
   .btn-secondary {
     @apply btn text-content-primary;
-    background: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.88);
     border: 1px solid var(--medipal-line);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 10px 26px -20px rgba(76, 16, 40, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px -20px rgba(6, 42, 78, 0.28);
   }
 
   .btn-secondary:hover:not(:disabled) {
     transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.95);
-    border-color: rgba(233, 30, 77, 0.45);
-    box-shadow: 0 18px 38px -22px rgba(76, 16, 40, 0.4);
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(11, 95, 165, 0.45);
+    box-shadow: 0 16px 34px -22px rgba(6, 42, 78, 0.38);
   }
 
   .btn-ghost {
@@ -231,8 +232,8 @@
   }
 
   .btn-ghost:hover:not(:disabled) {
-    color: #c2183a;
-    background: rgba(233, 30, 77, 0.06);
+    color: #0a3d75;
+    background: rgba(11, 95, 165, 0.07);
   }
 
   /* ---------- Form fields ---------- */
@@ -242,39 +243,39 @@
 
   .field {
     @apply w-full rounded-2xl px-4 py-3 text-sm text-content-primary transition-all duration-300 ease-smooth;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--medipal-line);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     outline: none;
   }
 
   .field::placeholder {
-    color: rgba(104, 104, 115, 0.62);
+    color: rgba(85, 105, 125, 0.62);
   }
 
   .field:hover:not(:disabled) {
-    border-color: rgba(23, 23, 28, 0.22);
+    border-color: rgba(11, 27, 43, 0.22);
   }
 
   .field:focus {
-    border-color: rgba(233, 30, 77, 0.6);
+    border-color: rgba(11, 95, 165, 0.6);
     background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+    box-shadow: 0 0 0 4px rgba(11, 95, 165, 0.12);
   }
 
   .field[aria-invalid="true"] {
-    border-color: rgba(233, 30, 77, 0.75);
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.1);
+    border-color: rgba(220, 38, 38, 0.7);
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1);
   }
 
   .field-error {
-    @apply mt-1.5 flex items-center gap-1.5 text-xs text-crimson-soft;
+    @apply mt-1.5 flex items-center gap-1.5 text-xs text-danger;
   }
 
   .field option {
     background-color: #ffffff;
-    color: #17171c;
+    color: #0b1b2b;
   }
 
   /* ---------- Layout helpers ---------- */
@@ -287,7 +288,7 @@
   }
 
   .chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-line bg-white/75 px-3.5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-secondary backdrop-blur-md;
+    @apply inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-3.5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-secondary backdrop-blur-md;
   }
 
   .divider-glass {
@@ -295,8 +296,8 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(23, 23, 28, 0.12) 20%,
-      rgba(23, 23, 28, 0.12) 80%,
+      rgba(11, 27, 43, 0.12) 20%,
+      rgba(11, 27, 43, 0.12) 80%,
       transparent
     );
   }
@@ -310,9 +311,9 @@
   }
 
   /* ------------------------------------------------------------------
-     E-UPCHAR — light, practical clinical surfaces (spec §2).
-     Scoped to `.eu-scope` so the dark Blood Bank / AI Doctor themes
-     are never affected.
+     E-UPCHAR — light, practical clinical surfaces.
+     Scoped to `.eu-scope` so the Blood Bank / AI Doctor themes are never
+     affected.
      ------------------------------------------------------------------ */
   .eu-scope {
     color-scheme: light;
@@ -326,20 +327,20 @@
     @apply rounded-2xl border border-eu-border bg-eu-surface;
   }
 
-  /* Selectively glassy — enough depth to feel premium, still readable. */
+  /* Selectively frosted — enough depth to feel premium, still readable. */
   .eu-glass {
     @apply relative rounded-2xl border border-white/70;
     background: linear-gradient(
       150deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.72) 52%,
-      rgba(253, 240, 237, 0.78) 100%
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.86) 52%,
+      rgba(244, 248, 252, 0.9) 100%
     );
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(125%);
+    -webkit-backdrop-filter: blur(12px) saturate(125%);
     box-shadow:
-      0 1px 2px rgba(32, 33, 36, 0.05),
-      0 20px 44px -26px rgba(32, 33, 36, 0.26),
+      0 1px 2px rgba(11, 27, 43, 0.05),
+      0 18px 40px -26px rgba(11, 27, 43, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
@@ -350,16 +351,16 @@
 
   .eu-btn-primary {
     @apply eu-btn text-white;
-    background: linear-gradient(140deg, #f04452 0%, #e91e4d 55%, #c2183a 100%);
+    background: linear-gradient(140deg, #2e86de 0%, #0b5fa5 55%, #0a3d75 100%);
     box-shadow:
-      0 12px 26px -14px rgba(233, 30, 77, 0.7),
+      0 12px 26px -16px rgba(11, 95, 165, 0.65),
       inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
 
   .eu-btn-primary:hover:not(:disabled) {
     transform: translateY(-1.5px);
     box-shadow:
-      0 18px 34px -14px rgba(194, 24, 58, 0.85),
+      0 18px 32px -16px rgba(10, 61, 117, 0.8),
       inset 0 1px 0 rgba(255, 255, 255, 0.36);
   }
 
@@ -369,8 +370,8 @@
 
   .eu-btn-secondary:hover:not(:disabled) {
     transform: translateY(-1.5px);
-    border-color: rgba(233, 30, 77, 0.5);
-    box-shadow: 0 14px 28px -20px rgba(23, 23, 28, 0.34);
+    border-color: rgba(11, 95, 165, 0.5);
+    box-shadow: 0 14px 28px -20px rgba(11, 27, 43, 0.32);
   }
 
   .eu-btn-quiet {
@@ -378,8 +379,8 @@
   }
 
   .eu-btn-quiet:hover:not(:disabled) {
-    background: #f7f7f9;
-    color: #17171c;
+    background: #f6f9fc;
+    color: #0b1b2b;
   }
 
   .eu-label {
@@ -391,25 +392,25 @@
   }
 
   .eu-field::placeholder {
-    color: rgba(104, 104, 115, 0.68);
+    color: rgba(85, 105, 125, 0.68);
   }
 
   .eu-field:hover:not(:disabled) {
-    border-color: #cdc2c7;
+    border-color: #c3d2e2;
   }
 
   .eu-field:focus {
-    border-color: #e91e4d;
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+    border-color: #0b5fa5;
+    box-shadow: 0 0 0 4px rgba(11, 95, 165, 0.12);
   }
 
   .eu-field[aria-invalid="true"] {
-    border-color: #c2183a;
-    box-shadow: 0 0 0 4px rgba(194, 24, 58, 0.12);
+    border-color: #dc2626;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
   }
 
   .eu-field-error {
-    @apply mt-1.5 text-xs font-medium text-eu-red-deep;
+    @apply mt-1.5 text-xs font-medium text-danger;
   }
 
   .eu-chip {

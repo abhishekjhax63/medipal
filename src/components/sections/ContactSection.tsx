@@ -126,7 +126,7 @@ export function ContactSection() {
                       href={method.href}
                       className="flex items-center gap-4 rounded-3xl p-5 transition-colors duration-300"
                     >
-                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(255,231,237,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(233,30,77,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
+                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(227,238,249,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(11,95,165,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
                         <Icon className="h-5 w-5 text-crimson" aria-hidden />
                       </span>
                       <span className="flex min-w-0 flex-col">

@@ -40,28 +40,28 @@ const education: readonly Education[] = [
 function GlassDroplet() {
   return (
     <div aria-hidden className="relative mx-auto w-full max-w-md">
-      <div className="pointer-events-none absolute inset-x-6 bottom-6 h-20 rounded-[50%] bg-[radial-gradient(closest-side,rgba(225,29,72,0.4),transparent_72%)] blur-2xl" />
+      <div className="pointer-events-none absolute inset-x-6 bottom-6 h-20 rounded-[50%] bg-[radial-gradient(closest-side,rgba(10,61,117,0.4),transparent_72%)] blur-2xl" />
 
       <svg
         viewBox="0 0 200 220"
-        className="relative mx-auto h-auto w-full max-w-[300px] animate-float-y drop-shadow-[0_40px_80px_rgba(225,29,72,0.32)]"
+        className="relative mx-auto h-auto w-full max-w-[300px] animate-float-y drop-shadow-[0_40px_80px_rgba(10,61,117,0.32)]"
         aria-hidden
       >
         <defs>
           <linearGradient id="bb-drop-fill" x1="0" y1="0" x2="0.6" y2="1">
-            <stop offset="0%" stopColor="rgba(255,49,87,0.62)" />
-            <stop offset="46%" stopColor="rgba(225,29,72,0.42)" />
-            <stop offset="100%" stopColor="rgba(76,16,40,0.78)" />
+            <stop offset="0%" stopColor="rgba(46,134,222,0.62)" />
+            <stop offset="46%" stopColor="rgba(10,61,117,0.42)" />
+            <stop offset="100%" stopColor="rgba(6,42,78,0.78)" />
           </linearGradient>
           <radialGradient id="bb-drop-glow" cx="36%" cy="30%" r="66%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.62)" />
-            <stop offset="46%" stopColor="rgba(255,49,87,0.34)" />
-            <stop offset="100%" stopColor="rgba(76,16,40,0)" />
+            <stop offset="46%" stopColor="rgba(46,134,222,0.34)" />
+            <stop offset="100%" stopColor="rgba(6,42,78,0)" />
           </radialGradient>
           <linearGradient id="bb-drop-edge" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="rgba(255,255,255,0.75)" />
             <stop offset="50%" stopColor="rgba(255,255,255,0.18)" />
-            <stop offset="100%" stopColor="rgba(255,49,87,0.4)" />
+            <stop offset="100%" stopColor="rgba(46,134,222,0.4)" />
           </linearGradient>
         </defs>
 
@@ -136,7 +136,7 @@ export function DonationAwareness() {
 
         <Reveal delay={0.12} className="relative">
           <div className="relative overflow-hidden rounded-[2.5rem] border border-line bg-blush-soft px-6 py-14">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_70%_at_50%_110%,rgba(233,30,77,0.12),transparent_64%)]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_70%_at_50%_110%,rgba(11,95,165,0.12),transparent_64%)]" />
             <div className="relative">
               <GlassDroplet />
             </div>

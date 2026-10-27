@@ -69,8 +69,12 @@ export default function BloodBridgeLivePage() {
                 ))}
               </div>
               
-              <button className="btn-primary ml-2 whitespace-nowrap">
-                Find Blood Near Me
+              <button
+                type="button"
+                onClick={() => setActiveTab("find")}
+                className="btn-primary ml-2 whitespace-nowrap"
+              >
+                Find Blood
               </button>
             </div>
           </div>
@@ -83,7 +87,9 @@ export default function BloodBridgeLivePage() {
           <div className="glass-panel min-h-[600px] overflow-hidden rounded-3xl border border-line">
             {activeTab === "find" && <LiveFindBlood />}
             {activeTab === "inventory" && <LiveInventory />}
-            {activeTab === "shortages" && <LiveShortages />}
+            {activeTab === "shortages" && (
+              <LiveShortages onOpenColdChain={() => setActiveTab("cold-chain")} />
+            )}
             {activeTab === "cold-chain" && <LiveColdChain />}
             {activeTab === "register" && <LiveRegisterHub />}
           </div>
@@ -104,7 +110,7 @@ export default function BloodBridgeLivePage() {
                 <span className="text-xs font-medium text-content-secondary uppercase tracking-wider">Update due (4-12h)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-crimson shadow-[0_0_8px_rgba(233,30,77,0.5)]" />
+                <span className="h-2 w-2 rounded-full bg-crimson shadow-[0_0_8px_rgba(11,95,165,0.5)]" />
                 <span className="text-xs font-medium text-content-secondary uppercase tracking-wider">Stale / Unconfirmed</span>
               </div>
             </div>

@@ -80,7 +80,7 @@ export function ReviewsSection() {
 
         <Reveal className="mt-12">
           <GlassCard hairline className="mx-auto flex max-w-3xl flex-col items-center px-6 py-12 text-center sm:px-10">
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(255,231,237,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(233,30,77,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-[linear-gradient(140deg,rgba(227,238,249,0.9),rgba(255,255,255,0.9))] shadow-[0_12px_30px_-18px_rgba(11,95,165,0.55),inset_0_1px_0_rgba(255,255,255,0.95)]">
               <Quote className="h-6 w-6 text-crimson" aria-hidden />
             </span>
             <h2 className="mt-5 font-display text-xl font-semibold text-content-primary">
@@ -165,7 +165,7 @@ export function ReviewsSection() {
                           className={cn(
                             "flex h-11 w-11 items-center justify-center rounded-2xl border transition-all duration-300 ease-smooth peer-focus-visible:ring-2 peer-focus-visible:ring-crimson/70 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-white",
                             selected
-                              ? "border-crimson/50 bg-blush shadow-[0_10px_26px_-16px_rgba(233,30,77,0.75)]"
+                              ? "border-crimson/50 bg-blush shadow-[0_10px_26px_-16px_rgba(11,95,165,0.75)]"
                               : "border-line bg-white/70 hover:border-crimson/35",
                             status === "submitting" && "opacity-60",
                           )}

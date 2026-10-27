@@ -154,7 +154,7 @@ export default function AmbulancePage() {
                 transition={{ duration: 0.45, delay: index * 0.05, ease: EASE_SMOOTH }}
                 className="glass-panel flex h-full flex-col rounded-3xl p-5"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#f04452,#c2183a)] text-sm font-bold text-white">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#2E86DE,#0A3D75)] text-sm font-bold text-white">
                   {meta.short}
                 </span>
                 <h3 className="mt-3 text-sm font-semibold text-content-primary">{category}</h3>

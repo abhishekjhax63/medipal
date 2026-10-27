@@ -52,7 +52,7 @@ function IconTile({ icon: Icon }: { icon: LucideIcon }) {
         aria-hidden
         className="absolute inset-0 rounded-2xl border border-line bg-blush shadow-glow-red-sm transition-transform duration-500 ease-smooth group-hover:-translate-y-0.5"
       >
-        <span className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_32%_22%,rgba(240,68,82,0.4),transparent_72%)]" />
+        <span className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_32%_22%,rgba(46,134,222,0.4),transparent_72%)]" />
       </span>
       <Icon className="relative h-6 w-6 text-content-primary" aria-hidden />
     </span>

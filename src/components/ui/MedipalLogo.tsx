@@ -15,7 +15,7 @@ type MedipalLogoProps = {
 
 /**
  * MEDIPAL mark: a medical cross crossed by a heartbeat trace,
- * set in a rounded crimson glass tile.
+ * set in a rounded navy / aqua glass tile.
  */
 export function MedipalLogo({
   size = 38,
@@ -33,13 +33,13 @@ export function MedipalLogo({
         viewBox="0 0 48 48"
         role="img"
         aria-label="MEDIPAL logo"
-        className="shrink-0 drop-shadow-[0_6px_16px_rgba(233,30,77,0.32)]"
+        className="shrink-0 drop-shadow-[0_6px_16px_rgba(11,95,165,0.32)]"
       >
         <defs>
           <linearGradient id={`${uniqueId}-fill`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F04452" />
-            <stop offset="52%" stopColor="#E91E4D" />
-            <stop offset="100%" stopColor="#C2183A" />
+            <stop offset="0%" stopColor="#2E86DE" />
+            <stop offset="52%" stopColor="#0B5FA5" />
+            <stop offset="100%" stopColor="#0E9AA7" />
           </linearGradient>
           <radialGradient id={`${uniqueId}-gloss`} cx="30%" cy="18%" r="75%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />

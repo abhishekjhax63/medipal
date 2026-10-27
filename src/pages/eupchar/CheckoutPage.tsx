@@ -183,7 +183,7 @@ export default function CheckoutPage() {
         name: "MEDIPAL E-UPCHAR",
         description: `${view!.service.name} · ${hospital!.name}`,
         order_id: order.orderId,
-        theme: { color: "#E91E4D" },
+        theme: { color: "#0B5FA5" },
         modal: { ondismiss: () => resolve() },
         handler: (response) => {
           void (async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, Compass, MapPin, Phone, ShieldAlert } from "lucide-react";
+import { Building2, Compass, ExternalLink, MapPin, Phone, ShieldAlert } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { EuPageHeader, EuShell } from "@/components/eupchar/EuShell";
 import { EuCard, EuEmptyState, EuNotice } from "@/components/eupchar/ui";
@@ -212,6 +212,24 @@ export default function DirectionsPage() {
           </EuNotice>
 
           <div className="flex flex-wrap gap-2.5">
+            {/* Hand the selected hospital to the user's own maps app. When we
+                have real geocoded coordinates we navigate to those; otherwise
+                we hand over a text search for the hospital, never a fake pin. */}
+            <a
+              href={
+                geo.status === "ready"
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${geo.latitude},${geo.longitude}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      `${hospital.name}, ${hospital.district}, Bihar, India`,
+                    )}`
+              }
+              target="_blank"
+              rel="noreferrer noopener"
+              className="eu-btn eu-btn-primary gap-2 px-4 py-2.5"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+              {geo.status === "ready" ? "Open navigation" : "Search in Maps"}
+            </a>
             <Link
               to={`/e-upchar/hospitals/${hospital.id}`}
               className="eu-btn eu-btn-secondary px-4 py-2.5"

@@ -96,7 +96,7 @@ export function CSSCharacterFallback({
 
       if (rim.current) {
         const mix = (nx + 1) / 2;
-        const colour = mix < 0.5 ? colors.redSoft : mix < 0.8 ? colors.redBright : "#FF6E93";
+        const colour = mix < 0.5 ? colors.redSoft : mix < 0.8 ? colors.redBright : "#6EC5FF";
         const boost = isThinking ? 1.5 : 1;
         rim.current.style.borderColor = colour;
         rim.current.style.boxShadow = `0 0 ${((24 + proximity * 46) * boost).toFixed(1)}px ${((6 + proximity * 10) * boost).toFixed(
@@ -129,7 +129,7 @@ export function CSSCharacterFallback({
       />
       <div
         ref={glow}
-        className="pointer-events-none absolute h-[62%] w-[62%] rounded-full bg-[radial-gradient(circle,rgba(233,30,77,0.26),transparent_68%)] blur-2xl"
+        className="pointer-events-none absolute h-[62%] w-[62%] rounded-full bg-[radial-gradient(circle,rgba(11,95,165,0.26),transparent_68%)] blur-2xl"
         style={{ opacity: 0.5 }}
       />
 
@@ -150,15 +150,15 @@ export function CSSCharacterFallback({
         />
 
         {/* Pearl-white ceramic shell */}
-        <div className="absolute inset-0 overflow-hidden rounded-[46%_46%_42%_42%/52%_52%_46%_46%] bg-[linear-gradient(150deg,#FFFFFF_0%,#F7F8FB_44%,#EFE1E7_100%)] shadow-[0_30px_60px_-28px_rgba(76,16,40,0.4),inset_0_2px_6px_rgba(255,255,255,0.98),inset_0_-14px_28px_-16px_rgba(233,30,77,0.16)]">
+        <div className="absolute inset-0 overflow-hidden rounded-[46%_46%_42%_42%/52%_52%_46%_46%] bg-[linear-gradient(150deg,#FFFFFF_0%,#F7F8FB_44%,#E6EEF7_100%)] shadow-[0_30px_60px_-28px_rgba(6,42,78,0.4),inset_0_2px_6px_rgba(255,255,255,0.98),inset_0_-14px_28px_-16px_rgba(11,95,165,0.16)]">
           <div className="absolute -left-6 -top-8 h-2/3 w-2/3 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.98),transparent_66%)]" />
-          <div className="absolute -right-10 bottom-2 h-1/2 w-1/2 rounded-full bg-[radial-gradient(circle,rgba(233,30,77,0.16),transparent_68%)]" />
+          <div className="absolute -right-10 bottom-2 h-1/2 w-1/2 rounded-full bg-[radial-gradient(circle,rgba(11,95,165,0.16),transparent_68%)]" />
         </div>
 
         {/* Translucent rose glass visor */}
         <div
           ref={face}
-          className="absolute left-1/2 top-[16%] h-[40%] w-[74%] -translate-x-1/2 overflow-hidden rounded-[30%] border border-crimson/25 bg-[linear-gradient(150deg,rgba(255,255,255,0.94)_0%,rgba(255,231,237,0.72)_48%,rgba(233,30,77,0.22)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_-20px_rgba(233,30,77,0.6)] backdrop-blur-sm"
+          className="absolute left-1/2 top-[16%] h-[40%] w-[74%] -translate-x-1/2 overflow-hidden rounded-[30%] border border-crimson/25 bg-[linear-gradient(150deg,rgba(255,255,255,0.94)_0%,rgba(227,238,249,0.72)_48%,rgba(11,95,165,0.22)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_-20px_rgba(11,95,165,0.6)] backdrop-blur-sm"
         >
           <div className="absolute -left-8 top-0 h-full w-14 -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.7),transparent)]" />
           <div className="absolute right-3 top-2 h-6 w-6 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.9),transparent_70%)]" />
@@ -167,8 +167,8 @@ export function CSSCharacterFallback({
         {/* Crimson LED eyes */}
         <div ref={eyes} className="absolute left-1/2 top-[30%] -translate-x-1/2">
           <div ref={eyeBlink} className="flex items-center gap-3" style={{ transformOrigin: "center" }}>
-            <span className="h-3 w-3 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(233,30,77,0.7)]" />
-            <span className="h-3 w-3 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(233,30,77,0.7)]" />
+            <span className="h-3 w-3 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(11,95,165,0.7)]" />
+            <span className="h-3 w-3 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(11,95,165,0.7)]" />
           </div>
         </div>
 
@@ -176,11 +176,11 @@ export function CSSCharacterFallback({
         <div className="absolute left-1/2 top-[44%] h-[2px] w-[16%] -translate-x-1/2 rounded-full bg-crimson/40" />
 
         {/* Chest core LED */}
-        <div className="absolute bottom-[18%] left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-crimson-bright shadow-[0_0_14px_3px_rgba(233,30,77,0.6)]" />
+        <div className="absolute bottom-[18%] left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-crimson-bright shadow-[0_0_14px_3px_rgba(11,95,165,0.6)]" />
 
         {/* Antenna */}
         <div className="absolute -top-6 left-1/2 h-6 w-[2px] -translate-x-1/2 bg-[#D9DCE5]" />
-        <div className="absolute -top-8 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(233,30,77,0.7)]" />
+        <div className="absolute -top-8 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-crimson-bright shadow-[0_0_14px_4px_rgba(11,95,165,0.7)]" />
       </div>
     </div>
   );

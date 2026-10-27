@@ -41,12 +41,12 @@ function HexAccent({ className }: { className?: string }) {
     <svg viewBox="0 0 200 200" className={className} fill="none">
       <path
         d="M100 6 L182 53 L182 147 L100 194 L18 147 L18 53 Z"
-        stroke="rgba(225,29,72,0.55)"
+        stroke="rgba(11,95,165,0.55)"
         strokeWidth="1"
       />
       <path
         d="M100 34 L156 66 L156 134 L100 166 L44 134 L44 66 Z"
-        stroke="rgba(225,29,72,0.3)"
+        stroke="rgba(14,154,167,0.35)"
         strokeWidth="1"
       />
     </svg>
@@ -111,7 +111,7 @@ export function InteractiveAICharacter({
             because the keyframe animations below write their own `transform` and
             would otherwise cancel the centring translate and overflow the page. */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(255,255,255,0.95),rgba(255,255,255,0)_64%)]" />
-        <div className="pointer-events-none absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(255,49,87,0.2),transparent_70%)] blur-2xl motion-safe:animate-drift-glow" />
+        <div className="pointer-events-none absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(46,134,222,0.22),transparent_70%)] blur-2xl motion-safe:animate-drift-glow" />
 
         {/* Thin geometric rings */}
         <div className="pointer-events-none absolute inset-[14%] rounded-full border border-crimson/15" />

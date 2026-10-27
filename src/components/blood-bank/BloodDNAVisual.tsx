@@ -117,19 +117,19 @@ function GlassDnaFallback({ interactive }: { interactive: boolean }) {
         >
           <defs>
             <radialGradient id="bb-fallback-glow" cx="50%" cy="46%" r="58%">
-              <stop offset="0%" stopColor="rgba(255,49,87,0.32)" />
-              <stop offset="60%" stopColor="rgba(185,20,66,0.14)" />
+              <stop offset="0%" stopColor="rgba(46,134,222,0.32)" />
+              <stop offset="60%" stopColor="rgba(10,61,117,0.14)" />
               <stop offset="100%" stopColor="rgba(8,9,13,0)" />
             </radialGradient>
             <linearGradient id="bb-fallback-strand" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(23,23,28,0.12)" />
-              <stop offset="50%" stopColor="rgba(23,23,28,0.38)" />
-              <stop offset="100%" stopColor="rgba(23,23,28,0.1)" />
+              <stop offset="0%" stopColor="rgba(11,27,43,0.12)" />
+              <stop offset="50%" stopColor="rgba(11,27,43,0.38)" />
+              <stop offset="100%" stopColor="rgba(11,27,43,0.1)" />
             </linearGradient>
             <radialGradient id="bb-fallback-bead-red" cx="34%" cy="28%" r="72%">
-              <stop offset="0%" stopColor="#FFD3DE" />
-              <stop offset="42%" stopColor="#FF3157" />
-              <stop offset="100%" stopColor="#B91442" />
+              <stop offset="0%" stopColor="#CFE4FF" />
+              <stop offset="42%" stopColor="#2E86DE" />
+              <stop offset="100%" stopColor="#0A3D75" />
             </radialGradient>
             <radialGradient id="bb-fallback-bead-silver" cx="32%" cy="26%" r="74%">
               <stop offset="0%" stopColor="#FFFFFF" />
@@ -147,7 +147,7 @@ function GlassDnaFallback({ interactive }: { interactive: boolean }) {
               y1={rung.y1}
               x2={rung.x2}
               y2={rung.y2}
-              stroke={rung.front ? "rgba(233,30,77,0.42)" : "rgba(23,23,28,0.14)"}
+              stroke={rung.front ? "rgba(11,95,165,0.42)" : "rgba(11,27,43,0.14)"}
               strokeWidth={rung.front ? 1.6 : 1.1}
               strokeLinecap="round"
             />
@@ -243,11 +243,11 @@ export function BloodDNAVisual({
       {/* Illuminated base / reflection beneath the object */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-6 bottom-2 h-28 rounded-[50%] bg-[radial-gradient(closest-side,rgba(225,29,72,0.34),transparent_74%)] blur-2xl animate-drift-glow"
+        className="pointer-events-none absolute inset-x-6 bottom-2 h-28 rounded-[50%] bg-[radial-gradient(closest-side,rgba(10,61,117,0.34),transparent_74%)] blur-2xl animate-drift-glow"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[78%] w-[86%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(255,49,87,0.16),transparent_72%)] blur-2xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[78%] w-[86%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(46,134,222,0.16),transparent_72%)] blur-2xl"
       />
 
       {/* Canvas / fallback stage — decorative, so hidden from assistive tech */}

@@ -34,7 +34,7 @@ function WelcomeHeader() {
           <span className="chip border-crimson/20 text-crimson-soft">
             <span className="relative flex h-2.5 w-2.5" aria-hidden>
               <span className="absolute inline-flex h-full w-full rounded-full bg-crimson-bright/60 motion-safe:animate-pulse-ring" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-crimson shadow-[0_0_10px_2px_rgba(233,30,77,0.55)]" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-crimson shadow-[0_0_10px_2px_rgba(11,95,165,0.55)]" />
             </span>
             AI HEALTH ASSISTANT
           </span>
@@ -67,7 +67,7 @@ function PromptGrid({ onSelect }: { onSelect: (definition: PromptDefinition) => 
               className="group block h-full w-full rounded-3xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-bright focus-visible:ring-offset-2"
             >
               <GlassCard tone="light" hairline className="flex h-full flex-col gap-3 p-5">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-crimson/15 bg-blush text-crimson shadow-[0_12px_26px_-18px_rgba(233,30,77,0.65)]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-crimson/15 bg-blush text-crimson shadow-[0_12px_26px_-18px_rgba(11,95,165,0.65)]">
                   <Icon className="h-5 w-5" aria-hidden />
                 </span>
                 <span className="font-display text-base font-semibold text-content-primary">

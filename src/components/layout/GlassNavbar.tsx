@@ -97,10 +97,11 @@ export function GlassNavbar() {
           </span>
         </Link>
 
-        {/* Primary experience switches: Blood Bank, AI Doctor, E-UPCHAR, Ambulance */}
+        {/* Primary experience switches: Blood Bank, AI Doctor, E-UPCHAR, Ambulance.
+            Scrolls horizontally on the narrowest phones instead of squashing. */}
         <nav
           aria-label="Primary experiences"
-          className="relative flex items-center gap-0.5 rounded-full border border-line bg-white/60 p-1 backdrop-blur-xl"
+          className="no-scrollbar relative flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded-full border border-line bg-white/60 p-1 backdrop-blur-xl sm:flex-none"
         >
           {experiences.map((experience) => {
             const isActive = activeExperience === experience.id;
@@ -111,7 +112,7 @@ export function GlassNavbar() {
                 aria-current={isActive ? "page" : undefined}
                 aria-label={experience.label}
                 className={cn(
-                  "group relative z-10 flex items-center gap-1.5 rounded-full px-3 py-1.5 font-manrope text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition-colors duration-300 sm:px-4 sm:text-[0.68rem]",
+                  "group relative z-10 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 font-manrope text-[0.62rem] font-semibold uppercase tracking-[0.14em] transition-colors duration-300 sm:px-4 sm:text-[0.68rem]",
                   isActive ? "text-white" : "text-content-secondary hover:text-crimson-soft",
                 )}
               >
@@ -119,7 +120,7 @@ export function GlassNavbar() {
                   <motion.span
                     layoutId="medipal-experience-pill"
                     transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-                    className="absolute inset-0 -z-10 rounded-full bg-[linear-gradient(120deg,#f04452,#e91e4d_58%,#c2183a)] shadow-[0_12px_26px_-14px_rgba(233,30,77,0.85)]"
+                    className="absolute inset-0 -z-10 rounded-full bg-[linear-gradient(120deg,#2E86DE,#0B5FA5_58%,#0A3D75)] shadow-[0_12px_26px_-14px_rgba(11,95,165,0.85)]"
                   />
                 )}
                 {!isActive && (
