@@ -20,10 +20,12 @@ function resolveExperience(pathname: string): ExperienceId {
   if (pathname.startsWith("/e-upchar")) return "e-upchar";
   if (pathname.startsWith("/ai-doctor")) return "ai-doctor";
   if (pathname.startsWith("/ambulance")) return "ambulance";
+  if (pathname.startsWith("/blood-bank")) return "blood-bank";
   return "blood-bank";
 }
 
 const secondaryLinks = [
+  { label: "Live", to: "/blood-bank/live" },
   { label: "About", to: "/about" },
   { label: "Reviews", to: "/reviews" },
   { label: "Contact", to: "/contact" },

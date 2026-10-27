@@ -11,6 +11,7 @@ import { useScrollBehaviour } from "@/hooks/useScrollBehaviour";
 import AboutPage from "@/pages/AboutPage";
 import AIDoctorPage from "@/pages/AIDoctorPage";
 import BloodBankPage from "@/pages/BloodBankPage";
+import BloodBridgeLivePage from "@/pages/blood-bank/BloodBridgeLivePage";
 import AdminConsolePage from "@/pages/blood-bank/AdminConsolePage";
 import FacilityConsolePage from "@/pages/blood-bank/FacilityConsolePage";
 import ContactPage from "@/pages/ContactPage";
@@ -70,6 +71,7 @@ function AppShell() {
             <Routes location={location}>
               {/* Blood Bank remains the default experience. */}
               <Route path="/" element={<BloodBankPage />} />
+              <Route path="/blood-bank/live" element={<BloodBridgeLivePage />} />
               <Route path="/ai-doctor" element={<AIDoctorPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />

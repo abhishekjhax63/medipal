@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BookOpen, HeartHandshake, Search } from "lucide-react";
+import { ArrowRight, BookOpen, HeartHandshake, Search, LayoutDashboard } from "lucide-react";
+import { Link } from "react-router-dom";
 import { BloodDNAVisual } from "@/components/blood-bank/BloodDNAVisual";
 import { scrollToId } from "@/components/blood-bank/bloodBankScroll";
 import { EASE_SMOOTH, fadeUp, staggerContainer } from "@/lib/animations";
@@ -51,17 +52,21 @@ export function BloodBankHero() {
           </motion.p>
 
           <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => scrollToId("availability-search")}
-              className="btn-primary group"
-            >
-              <Search className="h-4 w-4" aria-hidden />
-              Find Blood
+            <Link to="/blood-bank/live" className="btn-primary group bg-[#2a1a2e] border-[#2a1a2e] hover:bg-black">
+              <LayoutDashboard className="h-4 w-4" aria-hidden />
+              BloodBridge Live
               <ArrowRight
                 className="h-4 w-4 transition-transform duration-300 ease-smooth group-hover:translate-x-1"
                 aria-hidden
               />
+            </Link>
+            <button
+              type="button"
+              onClick={() => scrollToId("availability-search")}
+              className="btn-secondary group"
+            >
+              <Search className="h-4 w-4" aria-hidden />
+              Find Blood
             </button>
             <button
               type="button"
