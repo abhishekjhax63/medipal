@@ -195,6 +195,42 @@ export function dataSourceLabel(id: string | null | undefined): string {
   return DATA_SOURCE_LABEL[id] ?? id;
 }
 
+// ---------------------------------------------------------------------------
+// Centre verification
+// ---------------------------------------------------------------------------
+// Mirrors the `blood_centre_verification` enum. Only the two rungs that
+// represent an actual check may be described as verified; `provider_authorized`
+// says where the record came from, not that anybody inspected the centre.
+
+export const CENTRE_VERIFICATION_LABEL: Record<string, string> = {
+  unverified: "Not verified",
+  provider_authorized: "From an authorised feed",
+  field_verified: "Field-verified",
+  centre_verified: "Verified centre",
+  rejected: "Verification withdrawn",
+};
+
+export const CENTRE_VERIFICATION_TONE: Record<string, string> = {
+  unverified: "border-line bg-white/70 text-content-secondary",
+  provider_authorized: "border-crimson/25 bg-blush text-crimson-soft",
+  field_verified: "border-ok/30 bg-ok/10 text-ok",
+  centre_verified: "border-ok/30 bg-ok/10 text-ok",
+  rejected: "border-danger/30 bg-danger/10 text-danger",
+};
+
+/** Never guesses a friendlier word than the record supports. */
+export function centreVerificationLabel(value: string | null | undefined): string {
+  if (!value) return "Verification not recorded";
+  return CENTRE_VERIFICATION_LABEL[value] ?? "Verification not recorded";
+}
+
+export function centreVerificationTone(value: string | null | undefined): string {
+  return (value && CENTRE_VERIFICATION_TONE[value]) || "border-line bg-white/70 text-content-secondary";
+}
+
+/** The line shown wherever live stock cannot be produced (§1). */
+export const NO_LIVE_STOCK_COPY = "Live blood stock not available — contact the facility to confirm.";
+
 /** Human "3 hours ago", computed on the reader's own clock. */
 export function relativeTime(value: string | null | undefined, now = Date.now()): string {
   if (!value) return "never";

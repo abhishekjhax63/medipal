@@ -20,6 +20,7 @@ import { sendError } from "../../server/http.mjs";
 import { config } from "../../server/env.mjs";
 import { closePool, dbConfigured } from "../../server/db.mjs";
 import {
+  createBareCentre,
   createFixture,
   removeFixture,
   removeSyncRun,
@@ -49,13 +50,16 @@ async function call(method, path, headers = {}) {
 
 describe("live blood routes", { skip: dbConfigured ? false : NO_DATABASE }, () => {
   let fixture = null;
+  let bareCentre = null;
 
   before(async () => {
     fixture = await createFixture();
+    bareCentre = await createBareCentre();
   });
 
   after(async () => {
     await removeFixture(fixture);
+    await removeFixture(bareCentre);
     await closePool();
   });
 
@@ -134,6 +138,102 @@ describe("live blood routes", { skip: dbConfigured ? false : NO_DATABASE }, () =
       // Confirmed stock must sort above anything unconfirmed.
       const ranks = body.results.map((row) => (row.freshness === "LIVE" ? 0 : 1));
       assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, "results are emergency-ranked");
+    });
+  });
+
+  describe("GET /api/blood/facilities/cards (§1, §4)", () => {
+    const CARDS = "/api/blood/facilities/cards?state=Bihar&district=Patna&limit=200";
+
+    it("returns one card per approved centre with its reported stock nested", async () => {
+      const { response } = await call("GET", CARDS);
+      assert.equal(response.statusCode, 200);
+      const body = jsonBody(response);
+      assert.equal(body.disclaimer, AVAILABILITY_DISCLAIMER);
+      assert.ok(!response.body.includes(ADMIN_KEY), "no credential in a public payload");
+
+      const mine = body.cards.find((card) => card.centreId === fixture.facilityId);
+      assert.ok(mine, "the fixture centre is listed");
+      assert.equal(mine.availabilityState, "reported");
+      assert.equal(mine.inventory.reported, true);
+      assert.equal(mine.inventory.lineCount, 2);
+    });
+
+    it("age-labels each nested line from the source's own observation time (§1)", async () => {
+      const { response } = await call("GET", CARDS);
+      const card = jsonBody(response).cards.find((row) => row.centreId === fixture.facilityId);
+      const platelets = card.inventory.lines.find((line) => line.component === "Platelets");
+      const wholeBlood = card.inventory.lines.find((line) => line.component === "Whole Blood");
+      assert.equal(platelets.freshness, "LIVE", "a 2-minute-old observation is LIVE");
+      assert.equal(wholeBlood.freshness, "OUTDATED", "a 9-hour-old observation is never LIVE");
+      assert.equal(wholeBlood.availabilityStatus, "LOW");
+      assert.equal(wholeBlood.units, 3);
+    });
+
+    it("reports a centre that has reported nothing as not_reported, never as zero (§1)", async () => {
+      const { response } = await call("GET", CARDS);
+      const card = jsonBody(response).cards.find((row) => row.centreId === bareCentre.facilityId);
+      assert.ok(card, "a centre with no report is still listed");
+      assert.equal(card.availabilityState, "not_reported");
+      assert.equal(card.inventory.reported, false);
+      assert.equal(card.inventory.lineCount, 0);
+      assert.deepEqual(card.inventory.lines, [], "no figure is invented for it");
+      assert.equal(card.verification, "unverified", "the raw enum, never upgraded by the API");
+    });
+
+    it("treats a group filter as a search, dropping centres with no report for it", async () => {
+      const matching = await call(
+        "GET",
+        "/api/blood/facilities/cards?state=Bihar&district=Patna&bloodGroup=O%2B&limit=200",
+      );
+      const ids = jsonBody(matching.response).cards.map((card) => card.centreId);
+      assert.ok(ids.includes(fixture.facilityId), "a centre reporting O+ is a match");
+      assert.ok(!ids.includes(bareCentre.facilityId), "a centre with no report is not");
+
+      const none = await call(
+        "GET",
+        "/api/blood/facilities/cards?state=Bihar&district=Patna&bloodGroup=B-&limit=200",
+      );
+      assert.ok(
+        !jsonBody(none.response).cards.some((card) => card.centreId === fixture.facilityId),
+        "a centre that never reported B- is not shown as if it held none",
+      );
+    });
+
+    it("rejects an unknown blood group instead of silently ignoring it (§11)", async () => {
+      const { response } = await call("GET", "/api/blood/facilities/cards?bloodGroup=AB");
+      assert.equal(response.statusCode, 400);
+      assert.equal(jsonBody(response).code, "VALIDATION");
+    });
+  });
+
+  describe("GET /api/blood/facilities/:reference/inventory (§1, §2, §3)", () => {
+    it("returns the centre's own reported figures with provenance", async () => {
+      const { response } = await call("GET", `/api/blood/facilities/${fixture.facilityRef}/inventory`);
+      assert.equal(response.statusCode, 200);
+      const body = jsonBody(response);
+      assert.equal(body.facility.reference, fixture.facilityRef);
+      assert.equal(body.facility.centreId, fixture.facilityId);
+      assert.equal(body.facility.inventory.lineCount, 2);
+      assert.equal(body.disclaimer, AVAILABILITY_DISCLAIMER);
+      assert.ok(body.facility.source.id, "the panel names its source");
+      assert.ok(!response.body.includes(ADMIN_KEY));
+    });
+
+    it("still resolves a centre that has reported nothing, with an empty panel", async () => {
+      const { response } = await call(
+        "GET",
+        `/api/blood/facilities/${bareCentre.facilityRef}/inventory`,
+      );
+      assert.equal(response.statusCode, 200);
+      const body = jsonBody(response);
+      assert.equal(body.facility.availabilityState, "not_reported");
+      assert.equal(body.facility.inventory.lineCount, 0);
+    });
+
+    it("404s an unknown reference rather than inventing a centre (§1)", async () => {
+      const { response } = await call("GET", "/api/blood/facilities/MED-BBF-DOES-NOT-EXIST/inventory");
+      assert.equal(response.statusCode, 404);
+      assert.equal(jsonBody(response).code, "FACILITY_NOT_FOUND");
     });
   });
 

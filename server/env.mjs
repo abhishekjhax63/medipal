@@ -70,13 +70,39 @@ const int = (key, fallback, min, max) => {
   return parsed;
 };
 
+/**
+ * Gemini's official OpenAI-compatible surface. Google documents this URL and
+ * its `chat/completions` contract, so it is the one thing that is safe to
+ * derive from a key alone — unlike the model name, which the account must
+ * actually be entitled to. `AI_MODEL` therefore always wins over the default.
+ * https://ai.google.dev/gemini-api/docs/openai
+ */
+const GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+const GEMINI_DEFAULT_MODEL = "gemini-3.8-flash";
+
+const aiBaseUrl = read("AI_BASE_URL");
+const aiApiKey = read("AI_API_KEY") || read("GEMINI_API_KEY");
+/**
+ * Gemini is selected only when a Gemini key is present AND no generic
+ * OpenAI-compatible endpoint was configured. An explicit `AI_BASE_URL` always
+ * wins, so an operator pointing MEDIPAL at another gateway is never overridden.
+ */
+const usingGemini = Boolean(read("GEMINI_API_KEY")) && !aiBaseUrl;
+
 export const config = {
   port: Number.parseInt(read("PORT") || "8787", 10),
   ai: {
-    baseUrl: read("AI_BASE_URL").replace(/\/+$/, ""),
-    apiKey: read("AI_API_KEY"),
-    model: read("AI_MODEL"),
-    /** Explicit capability switches; a model is never assumed to accept media. */
+    baseUrl: (aiBaseUrl || (usingGemini ? GEMINI_OPENAI_BASE_URL : "")).replace(/\/+$/, ""),
+    apiKey: aiApiKey,
+    model: read("AI_MODEL") || (usingGemini ? GEMINI_DEFAULT_MODEL : ""),
+    /** Reporting only. Never surfaced to the browser with a URL or a key. */
+    provider: usingGemini ? "gemini" : aiBaseUrl ? "openai-compatible" : null,
+    /**
+     * Explicit capability switches; a model is never assumed to accept media.
+     * Gemini's Flash and Pro models do accept image input through the
+     * compatibility layer, but the operator still opts in — MEDIPAL does not
+     * infer vision support from a model name it cannot verify at boot.
+     */
     supportsImages: read("AI_SUPPORTS_IMAGES").toLowerCase() === "true",
     supportsVideoFrames: read("AI_SUPPORTS_VIDEO_FRAMES").toLowerCase() === "true",
     ffmpegPath: read("FFMPEG_PATH") || "ffmpeg",

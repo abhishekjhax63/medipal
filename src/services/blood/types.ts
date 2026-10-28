@@ -585,6 +585,118 @@ export interface NearbyCentresResponse {
   notice: string;
 }
 
+// ---------------------------------------------------------------------------
+// Facility cards — one blood centre per card, with its reported stock nested
+// ---------------------------------------------------------------------------
+// `/api/blood/centres` answers "which centre reports this group and component"
+// — one row per group × component. `/api/blood/facilities/cards` answers the
+// other question a visitor asks: "what does this centre actually hold?" So the
+// grain is a facility and the stock is nested inside it.
+//
+// A card whose `availabilityState` is `not_reported` means no figure has ever
+// been reported to MEDIPAL. It is never a statement that the centre holds none.
+
+/** The centre-verification ladder, passed through exactly as stored. */
+export type CentreVerification =
+  | "unverified"
+  | "provider_authorized"
+  | "field_verified"
+  | "centre_verified"
+  | "rejected"
+  | string;
+
+/** Whether MEDIPAL has received any stock report for this centre at all. */
+export type FacilityAvailabilityState = "reported" | "not_reported";
+
+/** One blood group × component figure a centre reported. */
+export interface FacilityStockLine {
+  bloodGroup: string;
+  component: string;
+  units: number;
+  unit: string;
+  availabilityStatus: AvailabilityStatus;
+  freshness: LiveFreshnessLevel;
+  lastUpdatedAt: string | null;
+  syncedAt: string | null;
+  batchCount: number;
+  nearestExpiryDate: string | null;
+  isProviderSynced: boolean;
+}
+
+/** A centre's reported lines for one blood group, in display order. */
+export interface FacilityStockGroup {
+  bloodGroup: string;
+  lines: FacilityStockLine[];
+  totalUnits: number;
+}
+
+export interface FacilityCard {
+  centreId: string;
+  reference: string;
+  externalId: string | null;
+  name: string;
+  category: string;
+  address: string | null;
+  city: string | null;
+  district: string | null;
+  state: string;
+  postalCode: string | null;
+  coordinates: [number, number] | null;
+  phone: string | null;
+  emergencyHotline: string | null;
+  hasBloodBank: boolean;
+  operatingHours: string | null;
+  lastVerifiedAt: string | null;
+  /** Raw enum. The interface must not upgrade it to "verified". */
+  verification: CentreVerification;
+  source: LiveDataSourceRef;
+  distanceKm: number | null;
+  inventory: {
+    reported: boolean;
+    lines: FacilityStockLine[];
+    groups: FacilityStockGroup[];
+    lineCount: number;
+    totalUnits: number;
+    /** Newest observation across the reported lines, or `null` when undated. */
+    lastUpdatedAt: string | null;
+    freshness: LiveFreshnessLevel;
+    providerSynced: boolean;
+  };
+  availabilityState: FacilityAvailabilityState;
+  disclaimer: string;
+}
+
+export type FacilityCardSort = "priority" | "distance" | "freshness" | "name";
+
+export interface FacilityCardsResponse {
+  query: {
+    state: string;
+    district: string | null;
+    bloodGroup: string | null;
+    component: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    radiusKm: number | null;
+    sortBy: FacilityCardSort;
+    limit: number;
+  };
+  thresholdsMinutes: FreshnessThresholds;
+  counts: { facilities: number; withReportedStock: number; lines: number };
+  cards: FacilityCard[];
+  truncated: boolean;
+  generatedAt: string;
+  disclaimer: string;
+  notice: string;
+}
+
+/** `GET /api/blood/facilities/:reference/inventory` — the stock panel. */
+export interface FacilityInventoryDetailResponse {
+  generatedAt: string;
+  facility: FacilityCard;
+  disclaimer: string;
+  note: string;
+}
+
 export type ProviderHealthState =
   | "healthy"
   | "degraded"

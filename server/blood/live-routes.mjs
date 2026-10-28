@@ -34,6 +34,24 @@ const COMPONENT_ALIASES = new Map([
   ["cryoprecipitate", "Cryoprecipitate"],
 ]);
 
+/** Display order for a facility's stock panel. Unknown values sort last. */
+const BLOOD_GROUP_ORDER = new Map(BLOOD_GROUPS.map((group, index) => [group, index]));
+const COMPONENT_ORDER = new Map(
+  [...COMPONENT_ALIASES.values()].map((component, index) => [component, index]),
+);
+
+/** The single facility projection both the card feed and the detail panel use. */
+const FACILITY_SELECT = `
+  select f.id, f.public_ref, f.external_id, f.name, f.category, f.address, f.city,
+         f.district, d.name as district_name, f.state, f.postal_code, f.latitude, f.longitude,
+         f.phone, f.emergency_hotline, f.has_blood_bank, f.status, f.verification_status,
+         f.source_url, f.operating_hours, f.last_verified_at, f.data_source_id, f.source_note,
+         s.name as source_name, s.priority as source_priority,
+         s.verification_status as source_verification_status, s.url as source_register_url
+    from blood_facilities f
+    left join districts d on d.id = f.district_id
+    join blood_data_sources s on s.id = f.data_source_id`;
+
 function oneOrNull(params, key) {
   const value = params.get(key);
   return value && value.trim() ? value.trim() : null;
@@ -324,6 +342,288 @@ async function nearbyCentres(params) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Facility cards — one blood centre per card, with its reported stock nested
+// ---------------------------------------------------------------------------
+// `/api/blood/centres` answers "which centre reports this group and component"
+// — one row per group × component. This answers the other question a visitor
+// asks: "what does this centre actually hold?" So the grain is a facility, the
+// stock is nested inside it, and a centre that has reported nothing is still
+// returned with an explicitly empty inventory block rather than being hidden.
+//
+// Nothing is inferred. A card with no lines says "no report received", never
+// "zero units" and never "unavailable".
+
+async function fetchFacilityRows({ state = null, district = null, reference = null }) {
+  const clauses = ["f.status = 'approved'"];
+  const params = [];
+
+  if (state) {
+    params.push(state);
+    clauses.push(`f.state = $${params.length}`);
+  }
+  if (district) {
+    params.push(district);
+    clauses.push(`(f.district = $${params.length} or d.name = $${params.length})`);
+  }
+  if (reference) {
+    params.push(reference);
+    clauses.push(`f.public_ref = $${params.length}`);
+  }
+
+  const result = await query(
+    `${FACILITY_SELECT} where ${clauses.join(" and ")} order by s.priority asc, f.name asc`,
+    params,
+  );
+  return result.rows;
+}
+
+/** One query for every centre in scope, indexed by facility id. No N+1. */
+async function fetchStockLines(facilityIds) {
+  const byFacility = new Map();
+  if (facilityIds.length === 0) return byFacility;
+
+  const result = await query(
+    `select facility_id, blood_group, component, available_quantity, unit, availability_status,
+            inventory_last_updated_at, source_updated_at, synced_at, is_provider_synced,
+            batch_count, nearest_expiry_date
+       from blood_public_availability
+      where facility_id = any($1::uuid[])`,
+    [facilityIds],
+  );
+
+  for (const row of result.rows) {
+    if (!byFacility.has(row.facility_id)) byFacility.set(row.facility_id, []);
+    byFacility.get(row.facility_id).push(row);
+  }
+  return byFacility;
+}
+
+/**
+ * Age-labelled from the source's own observation time. `synced_at` is never a
+ * substitute: it records when MEDIPAL copied a number, not when a centre
+ * observed it, and using it would let a stale figure read as current.
+ */
+function stockLine(row, now) {
+  const observedAt = row.source_updated_at ?? row.inventory_last_updated_at ?? null;
+  const expiry = row.nearest_expiry_date ? new Date(row.nearest_expiry_date) : null;
+  return {
+    bloodGroup: row.blood_group,
+    component: row.component,
+    units: row.available_quantity ?? 0,
+    unit: row.unit ?? "Units",
+    availabilityStatus: row.availability_status ?? "UNKNOWN",
+    freshness: computeFreshnessLevel(observedAt, FRESHNESS_THRESHOLDS, now),
+    lastUpdatedAt: observedAt ? new Date(observedAt).toISOString() : null,
+    syncedAt: row.synced_at ? new Date(row.synced_at).toISOString() : null,
+    batchCount: row.batch_count ?? 0,
+    nearestExpiryDate:
+      expiry && !Number.isNaN(expiry.getTime()) ? expiry.toISOString().slice(0, 10) : null,
+    isProviderSynced: row.is_provider_synced === true,
+  };
+}
+
+function groupLines(lines) {
+  const groups = [];
+  for (const line of lines) {
+    const last = groups[groups.length - 1];
+    if (last && last.bloodGroup === line.bloodGroup) {
+      last.lines.push(line);
+      last.totalUnits += line.units;
+    } else {
+      groups.push({ bloodGroup: line.bloodGroup, lines: [line], totalUnits: line.units });
+    }
+  }
+  return groups;
+}
+
+function buildFacilityCard(facility, stockRows, origin, scope = {}) {
+  const now = Date.now();
+  const hasOrigin =
+    Number.isFinite(origin?.latitude) && Number.isFinite(origin?.longitude);
+  const distanceKm =
+    hasOrigin && facility.latitude !== null && facility.longitude !== null
+      ? round1(haversine(origin.latitude, origin.longitude, facility.latitude, facility.longitude))
+      : null;
+
+  const lines = stockRows
+    .map((row) => stockLine(row, now))
+    .filter(
+      (line) =>
+        (!scope.bloodGroup || line.bloodGroup === scope.bloodGroup) &&
+        (!scope.component || line.component === scope.component),
+    )
+    .sort(
+      (a, b) =>
+        (BLOOD_GROUP_ORDER.get(a.bloodGroup) ?? 99) - (BLOOD_GROUP_ORDER.get(b.bloodGroup) ?? 99) ||
+        (COMPONENT_ORDER.get(a.component) ?? 99) - (COMPONENT_ORDER.get(b.component) ?? 99),
+    );
+
+  let observedAt = null;
+  for (const line of lines) {
+    if (!line.lastUpdatedAt) continue;
+    if (!observedAt || new Date(line.lastUpdatedAt) > new Date(observedAt)) {
+      observedAt = line.lastUpdatedAt;
+    }
+  }
+
+  return {
+    centreId: facility.id,
+    reference: facility.public_ref,
+    externalId: facility.external_id,
+    name: facility.name,
+    category: facility.category,
+    address: facility.address,
+    city: facility.city,
+    district: facility.district_name ?? facility.district,
+    state: facility.state,
+    postalCode: facility.postal_code,
+    coordinates:
+      facility.latitude !== null && facility.longitude !== null
+        ? [facility.latitude, facility.longitude]
+        : null,
+    phone: facility.phone,
+    emergencyHotline: facility.emergency_hotline,
+    hasBloodBank: facility.has_blood_bank === true,
+    operatingHours: facility.operating_hours,
+    lastVerifiedAt: facility.last_verified_at ? new Date(facility.last_verified_at).toISOString() : null,
+    // The raw enum and nothing more. The interface decides which of these may
+    // be described as "verified" — MEDIPAL does not upgrade it here.
+    verification: facility.verification_status,
+    source: {
+      id: facility.data_source_id,
+      label: facility.source_name,
+      priority: facility.source_priority,
+      verificationStatus: facility.source_verification_status,
+      url: facility.source_url ?? facility.source_register_url ?? null,
+      note: facility.source_note,
+    },
+    distanceKm,
+    inventory: {
+      reported: lines.length > 0,
+      lines,
+      groups: groupLines(lines),
+      lineCount: lines.length,
+      totalUnits: lines.reduce((sum, line) => sum + line.units, 0),
+      lastUpdatedAt: observedAt,
+      freshness: computeFreshnessLevel(observedAt, FRESHNESS_THRESHOLDS, now),
+      providerSynced: lines.some((line) => line.isProviderSynced),
+    },
+    availabilityState: lines.length > 0 ? "reported" : "not_reported",
+    disclaimer: AVAILABILITY_DISCLAIMER,
+  };
+}
+
+async function listFacilityCards(params) {
+  const state = oneOrNull(params, "state") ?? "Bihar";
+  const district = oneOrNull(params, "district");
+  const bloodGroup = oneOrNull(params, "bloodGroup");
+  if (bloodGroup && !BLOOD_GROUPS.includes(bloodGroup)) {
+    throw new HttpError(400, "Blood group must be one of A+/A-/B+/B-/AB+/AB-/O+/O-.", "VALIDATION");
+  }
+  const component = resolveComponent(params);
+  const latitude = Number.parseFloat(params.get("latitude") ?? params.get("lat") ?? "");
+  const longitude = Number.parseFloat(params.get("longitude") ?? params.get("lng") ?? "");
+  const radiusRaw = Number.parseFloat(params.get("radius") ?? params.get("radiusKm") ?? "");
+  const radiusKm = Number.isFinite(radiusRaw) && radiusRaw > 0 ? Math.min(radiusRaw, 500) : null;
+  const limit = Math.min(Number.parseInt(params.get("limit") ?? "", 10) || 60, 200);
+
+  const facilities = await fetchFacilityRows({ state, district });
+  const stock = await fetchStockLines(facilities.map((facility) => facility.id));
+
+  let cards = facilities.map((facility) =>
+    buildFacilityCard(facility, stock.get(facility.id) ?? [], { latitude, longitude }, { bloodGroup, component }),
+  );
+
+  // A group/component filter is a search: a centre that has reported nothing
+  // for that combination is not a match, so it is left out rather than shown
+  // as if it held none.
+  if (bloodGroup || component) cards = cards.filter((card) => card.inventory.lineCount > 0);
+  if (radiusKm !== null) {
+    cards = cards.filter((card) => card.distanceKm === null || card.distanceKm <= radiusKm);
+  }
+
+  const sortBy =
+    oneOrNull(params, "sortBy") ??
+    (Number.isFinite(latitude) && Number.isFinite(longitude) ? "distance" : "priority");
+
+  const freshnessRank = { LIVE: 0, RECENT: 1, STALE: 2, OUTDATED: 3, UNKNOWN: 4 };
+  if (sortBy === "distance") {
+    cards = [...cards].sort(
+      (a, b) =>
+        (a.distanceKm ?? Number.POSITIVE_INFINITY) - (b.distanceKm ?? Number.POSITIVE_INFINITY) ||
+        a.name.localeCompare(b.name),
+    );
+  } else if (sortBy === "freshness") {
+    cards = [...cards].sort(
+      (a, b) =>
+        freshnessRank[a.inventory.freshness] - freshnessRank[b.inventory.freshness] ||
+        a.name.localeCompare(b.name),
+    );
+  } else if (sortBy === "name") {
+    cards = [...cards].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  const allCards = cards;
+  const truncated = allCards.length > limit;
+  const shown = allCards.slice(0, limit);
+
+  return {
+    query: {
+      state,
+      district,
+      bloodGroup,
+      component,
+      latitude: Number.isFinite(latitude) ? latitude : null,
+      longitude: Number.isFinite(longitude) ? longitude : null,
+      radiusKm,
+      sortBy,
+      limit,
+    },
+    thresholdsMinutes: FRESHNESS_THRESHOLDS,
+    counts: {
+      facilities: allCards.length,
+      withReportedStock: allCards.filter((card) => card.inventory.reported).length,
+      lines: allCards.reduce((sum, card) => sum + card.inventory.lineCount, 0),
+    },
+    cards: shown,
+    truncated,
+    generatedAt: new Date().toISOString(),
+    disclaimer: AVAILABILITY_DISCLAIMER,
+    notice:
+      "Only centres MEDIPAL has approved appear here. A card with no stock panel means no figure " +
+      "has been reported to MEDIPAL — it is not a statement that the centre holds none. " +
+      "Presence in this list is not proof that a centre operates a blood bank.",
+  };
+}
+
+async function facilityInventoryDetail(reference) {
+  const value = typeof reference === "string" ? reference.trim() : "";
+  if (!value) throw new HttpError(400, "A facility reference is required.", "VALIDATION");
+
+  const facilities = await fetchFacilityRows({ reference: value });
+  if (facilities.length === 0) {
+    throw new HttpError(
+      404,
+      "No approved blood centre matches that reference.",
+      "FACILITY_NOT_FOUND",
+    );
+  }
+
+  const facility = facilities[0];
+  const stock = await fetchStockLines([facility.id]);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    facility: buildFacilityCard(facility, stock.get(facility.id) ?? [], null),
+    disclaimer: AVAILABILITY_DISCLAIMER,
+    note:
+      "Every figure is one the centre itself reported, with the time the source observed it. " +
+      "MEDIPAL does not estimate stock. An empty panel means no report has been received — " +
+      "not that none is held.",
+  };
+}
+
 /** `GET /api/blood/stream` — server-sent events for live inventory changes. */
 function streamChanges(request, response) {
   response.writeHead(200, {
@@ -497,6 +797,25 @@ export async function handleLiveBloodRoute(request, response, url) {
 
   if (method === "GET" && pathname === "/api/blood/centres") {
     sendJson(response, 200, await listCentres(searchParams));
+    return true;
+  }
+
+  // Facility-centric card feed and its detail panel. Checked before the
+  // `:reference/inventory` pattern so the literal segment always wins.
+  if (method === "GET" && pathname === "/api/blood/facilities/cards") {
+    sendJson(response, 200, await listFacilityCards(searchParams));
+    return true;
+  }
+
+  if (
+    method === "GET" &&
+    pathname.startsWith("/api/blood/facilities/") &&
+    pathname.endsWith("/inventory")
+  ) {
+    const reference = decodeURIComponent(
+      pathname.slice("/api/blood/facilities/".length, -"/inventory".length),
+    );
+    sendJson(response, 200, await facilityInventoryDetail(reference));
     return true;
   }
 

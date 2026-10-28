@@ -201,7 +201,7 @@ function extractReply(payload) {
 }
 
 export async function requestChat(rawMessages) {
-  if (!aiConfigured) throw new HttpError(503, "AI analysis is not configured on this server. Set AI_BASE_URL, AI_API_KEY and AI_MODEL.", "AI_NOT_CONFIGURED");
+  if (!aiConfigured) throw new HttpError(503, "AI analysis is not configured on this server. Set GEMINI_API_KEY, or AI_BASE_URL + AI_API_KEY + AI_MODEL for another OpenAI-compatible provider.", "AI_NOT_CONFIGURED");
   const messages = await normaliseMessages(rawMessages);
   let response;
   try {

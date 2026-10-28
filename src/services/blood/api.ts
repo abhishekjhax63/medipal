@@ -29,7 +29,10 @@ import type {
   EmergencyInfo,
   FacilityApplicationInput,
   FacilityApplicationResult,
+  FacilityCardSort,
+  FacilityCardsResponse,
   FacilityConsoleIdentity,
+  FacilityInventoryDetailResponse,
   FacilityNotification,
   FacilityOpenRequest,
   FacilityStatus,
@@ -249,6 +252,33 @@ export const bloodApi = {
 
   /** Which sources are configured, and how fresh their last delivery was. */
   health: (signal?: AbortSignal) => request<BloodHealthResponse>("/api/blood/health", { signal }),
+
+  /**
+   * One card per approved centre, with that centre's reported stock nested.
+   * This is the facility-grain feed the blood-bank cards render; a centre that
+   * has reported nothing still comes back, marked `not_reported`.
+   */
+  facilityCards: (
+    query?: {
+      state?: string;
+      district?: string;
+      bloodGroup?: string;
+      component?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
+      sortBy?: FacilityCardSort;
+      limit?: number;
+    },
+    signal?: AbortSignal,
+  ) => request<FacilityCardsResponse>("/api/blood/facilities/cards", { query, signal }),
+
+  /** The full stock panel for one centre, addressed by its public reference. */
+  facilityInventory: (reference: string, signal?: AbortSignal) =>
+    request<FacilityInventoryDetailResponse>(
+      `/api/blood/facilities/${encodeURIComponent(reference.trim())}/inventory`,
+      { signal },
+    ),
 };
 
 /**

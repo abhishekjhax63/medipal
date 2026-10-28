@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
-  Building2,
   Clock,
   ExternalLink,
   Globe,
@@ -16,10 +15,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { NO_LIVE_STOCK_COPY } from "@/lib/blood/presentation";
+import { directionsUrl, telHref } from "@/lib/blood/directions";
+import { BloodStockPanel, type StockPanelSubject } from "@/components/blood-bank/BloodStockPanel";
 import {
   FACILITY_KIND_LABEL,
   RADIUS_OPTIONS_KM,
-  facilityDirectionsUrl,
   formatFacilityDistance,
   type Facility,
   type FacilityKind,
@@ -161,6 +162,8 @@ export function FacilityFinder({
   const [sortBy, setSortBy] = useState<"distance" | "name">("distance");
   const [state, setState] = useState<FinderState>({ kind: "idle" });
   const [directoryNote, setDirectoryNote] = useState<string | null>(null);
+  /** Which facility the honest "no live stock" panel is open for. */
+  const [panel, setPanel] = useState<StockPanelSubject | null>(null);
 
   const controllerRef = useRef<AbortController | null>(null);
   const lastSearchRef = useRef<{ query?: string; latitude?: number; longitude?: number } | null>(null);
@@ -471,7 +474,31 @@ export function FacilityFinder({
               <ul className="grid gap-3">
                 {state.data.facilities.map((facility) => (
                   <li key={facility.id}>
-                    <FacilityRow facility={facility} tone={tone} />
+                    <FacilityRow
+                      facility={facility}
+                      tone={tone}
+                      /* The search origin doubles as the directions start, and
+                         exists only when the visitor themselves asked for it. */
+                      origin={
+                        state.data.origin
+                          ? [state.data.origin.latitude, state.data.origin.longitude]
+                          : null
+                      }
+                      onViewStock={() =>
+                        setPanel({
+                          // The maps directory holds no MEDIPAL record, so the
+                          // panel must say "no reported stock", not fetch one.
+                          reference: null,
+                          name: facility.name ?? facility.address ?? "Healthcare facility",
+                          address: facility.address,
+                          coordinates: [facility.latitude, facility.longitude],
+                          phone: facility.phone,
+                          emergencyHotline: null,
+                          sourceUrl: facility.sourceUrl,
+                          sourceLabel: facility.source,
+                        })
+                      }
+                    />
                   </li>
                 ))}
               </ul>
@@ -493,11 +520,44 @@ export function FacilityFinder({
           </div>
         ) : null}
       </div>
+
+      {panel ? (
+        <BloodStockPanel
+          subject={panel}
+          origin={
+            state.kind === "ready" && state.data.origin
+              ? [state.data.origin.latitude, state.data.origin.longitude]
+              : null
+          }
+          onClose={() => setPanel(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
+/**
+ * One facility card.
+ *
+ * The structure follows §4 — identity and honesty on the top row, the facts the
+ * source published in the middle, and the three actions a person actually needs
+ * on the bottom row. Buttons wrap onto their own rows on narrow screens rather
+ * than overflowing.
+ *
+ * Nothing is filled in: a facility with no phone number says so, and a facility
+ * with no MEDIPAL stock report says so instead of showing a zero.
+ */
+function FacilityRow({
+  facility,
+  tone,
+  origin,
+  onViewStock,
+}: {
+  facility: Facility;
+  tone: Tone;
+  origin: [number, number] | null;
+  onViewStock: () => void;
+}) {
   const t = TONE[tone];
   const distance = formatFacilityDistance(facility.distanceMeters);
   const title = facility.name ?? facility.address ?? "Healthcare facility (name not recorded in OpenStreetMap)";
@@ -505,12 +565,22 @@ function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
     .filter((value, index, all) => Boolean(value) && all.indexOf(value) === index)
     .join(", ");
 
+  const callHref = telHref(facility.phone);
+  const mapHref = directionsUrl(
+    { coordinates: [facility.latitude, facility.longitude], address: facility.address, name: title },
+    origin,
+  );
+
   return (
     <article className={t.card}>
+      {/* ---- Top row: name, verification, type ------------------------- */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2">
             <span className={t.cardTitle}>{title}</span>
+            <span className={cn("rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em]", t.soft, t.muted)}>
+              Not verified by MEDIPAL
+            </span>
             <span className={cn("rounded-full border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em]", t.soft, t.accent)}>
               {FACILITY_KIND_LABEL[facility.kind]}
             </span>
@@ -537,6 +607,7 @@ function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
         ) : null}
       </div>
 
+      {/* ---- Middle: contact and hours --------------------------------- */}
       <dl className={cn("mt-3 grid gap-1.5 text-xs leading-relaxed", t.muted)}>
         <div className="flex flex-wrap items-center gap-2">
           <dt className="inline-flex items-center gap-1.5">
@@ -544,12 +615,12 @@ function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
             Phone
           </dt>
           <dd>
-            {facility.phone ? (
-              <a href={`tel:${facility.phone}`} className={cn("font-medium hover:underline", t.accent)}>
+            {callHref ? (
+              <a href={callHref} className={cn("font-medium hover:underline", t.accent)}>
                 {facility.phone}
               </a>
             ) : (
-              <span>Not published in OpenStreetMap</span>
+              <span>Phone number unavailable.</span>
             )}
           </dd>
         </div>
@@ -560,39 +631,83 @@ function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
           </dt>
           <dd>{facility.openingHours ? <span>{facility.openingHours}</span> : <span>Not published in OpenStreetMap</span>}</dd>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <dt className="inline-flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5" aria-hidden />
-            Coordinates
-          </dt>
-          <dd className="tabular-nums">
-            {facility.latitude.toFixed(5)}, {facility.longitude.toFixed(5)}
-          </dd>
-        </div>
       </dl>
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
-        <a
-          href={facilityDirectionsUrl(facility)}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={cn(t.primary, "gap-2 px-3.5 py-2 text-[0.8rem]")}
-        >
-          <Navigation className="h-3.5 w-3.5" aria-hidden />
-          Directions
-        </a>
-        {facility.phone ? (
-          <a href={`tel:${facility.phone}`} className={cn(t.secondary, "gap-2 px-3.5 py-2 text-[0.8rem]")}>
-            <Phone className="h-3.5 w-3.5" aria-hidden />
-            Call
-          </a>
+      {/* ---- Blood stock: never implied, never estimated --------------- */}
+      {tone === "blood" ? (
+        <div className={cn("mt-3 rounded-xl border px-3.5 py-3", t.notice)}>
+          <p className="flex items-start gap-2 text-[0.72rem] leading-relaxed">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-crimson" aria-hidden />
+            <span>
+              <span className={cn("font-medium", tone === "blood" ? "text-content-primary" : "text-eu-text")}>
+                {NO_LIVE_STOCK_COPY}
+              </span>{" "}
+              OpenStreetMap records that this place exists — it publishes no blood stock, so MEDIPAL
+              holds no figure and will not guess one.
+            </span>
+          </p>
+        </div>
+      ) : null}
+
+      {/* ---- Bottom action row ---------------------------------------- */}
+      <div className={cn("mt-3.5 grid gap-2", tone === "blood" ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        {tone === "blood" ? (
+          <button type="button" onClick={onViewStock} className={cn(t.secondary, "justify-center gap-2 px-3.5 py-2 text-[0.8rem]")}>
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+            View Blood Stock
+          </button>
         ) : null}
+        {callHref ? (
+          <a href={callHref} className={cn(t.primary, "justify-center gap-2 px-3.5 py-2 text-[0.8rem]")}>
+            <Phone className="h-3.5 w-3.5" aria-hidden />
+            Call Hospital
+          </a>
+        ) : (
+          <span
+            aria-disabled
+            className={cn(
+              "inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border px-3.5 py-2 text-[0.8rem]",
+              t.soft,
+              t.muted,
+            )}
+          >
+            <Phone className="h-3.5 w-3.5" aria-hidden />
+            Phone number unavailable.
+          </span>
+        )}
+        {mapHref ? (
+          <a
+            href={mapHref}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={cn(t.secondary, "justify-center gap-2 px-3.5 py-2 text-[0.8rem]")}
+          >
+            <Navigation className="h-3.5 w-3.5" aria-hidden />
+            Get Directions
+          </a>
+        ) : (
+          <span
+            aria-disabled
+            className={cn(
+              "inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border px-3.5 py-2 text-[0.8rem]",
+              t.soft,
+              t.muted,
+            )}
+          >
+            <Navigation className="h-3.5 w-3.5" aria-hidden />
+            Location not published
+          </span>
+        )}
+      </div>
+
+      {/* ---- Secondary links ------------------------------------------ */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {facility.website ? (
           <a
             href={facility.website}
             target="_blank"
             rel="noreferrer noopener"
-            className={cn(t.secondary, "gap-2 px-3.5 py-2 text-[0.8rem]")}
+            className={cn(t.quiet, "gap-2 px-3.5 py-2 text-[0.8rem]")}
           >
             <Globe className="h-3.5 w-3.5" aria-hidden />
             Website
@@ -607,14 +722,10 @@ function FacilityRow({ facility, tone }: { facility: Facility; tone: Tone }) {
           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           Source record
         </a>
+        <span className={cn("text-[0.68rem] leading-relaxed", t.muted)}>
+          Coordinates {facility.latitude.toFixed(5)}, {facility.longitude.toFixed(5)}
+        </span>
       </div>
-
-      {facility.kind === "blood_bank" ? (
-        <p className={cn("mt-3 flex items-start gap-2 text-[0.72rem] leading-relaxed", t.muted)}>
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          Blood availability has not been verified. Please contact the facility.
-        </p>
-      ) : null}
     </article>
   );
 }

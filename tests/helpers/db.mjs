@@ -82,6 +82,37 @@ export async function createFixture() {
   return { facilityId, facilityRef, marker };
 }
 
+/**
+ * Commits one synthetic, approved centre that has reported NO inventory at all.
+ *
+ * This is the honesty fixture: a centre existing is not evidence that it holds
+ * blood, so every surface must render its stock block as "no report received"
+ * rather than as zero units or as unavailable.
+ */
+export async function createBareCentre() {
+  const marker = newMarker();
+  const facility = await query(
+    `insert into blood_facilities
+       (name, category, address, city, district, state, postal_code, latitude, longitude, phone,
+        license_number, status, has_blood_bank, data_source_id, source_note,
+        verification_status, external_id, last_verified_at)
+     values ($1, 'Regional Blood Center', $2, 'Patna', 'Patna', 'Bihar', '800001', 25.6100, 85.1400, null,
+             $3, 'approved', true, $4, $5,
+             'unverified', $6, now())
+     returning id, public_ref`,
+    [
+      "TEST FIXTURE — synthetic centre with no reported stock (MEDIPAL test suite)",
+      "Created only for an automated test run and deleted when it finishes.",
+      `TEST-LICENCE-${marker.slice(-8)}`,
+      FIXTURE_SOURCE_ID,
+      "Synthetic row created by the MEDIPAL test suite. It reports no stock, on purpose. Removed on completion.",
+      marker,
+    ],
+  );
+
+  return { facilityId: facility.rows[0].id, facilityRef: facility.rows[0].public_ref, marker };
+}
+
 /** Removes the fixture and everything that cascades from it. Idempotent. */
 export async function removeFixture(fixture) {
   if (!fixture?.facilityId) return;

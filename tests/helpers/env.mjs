@@ -48,3 +48,10 @@ process.env.ERAKTKOSH_API_SECRET = "";
 process.env.ERAKTKOSH_CENTRES_PATH = "";
 process.env.ERAKTKOSH_AVAILABILITY_PATH = "";
 process.env.ERAKTKOSH_DISTRICTS_PATH = "";
+
+// Blanked for the same reason: a developer's own AI credential must never turn
+// a test run into a real, billable provider call.
+process.env.AI_BASE_URL = "";
+process.env.AI_API_KEY = "";
+process.env.AI_MODEL = "";
+process.env.GEMINI_API_KEY = "";
