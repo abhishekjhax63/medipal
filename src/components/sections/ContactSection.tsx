@@ -102,7 +102,7 @@ export function ContactSection() {
   };
 
   return (
-    <section aria-labelledby="contact-heading" className="section-pad relative pt-12 sm:pt-16">
+    <section aria-labelledby="contact-heading" className="section-pad relative pt-32 sm:pt-40">
       <div className="section-shell relative">
         <SectionHeading
           id="contact-heading"

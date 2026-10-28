@@ -31,7 +31,6 @@ import {
   relativeTime,
 } from "@/lib/blood/presentation";
 import { parseBloodQuery, type ParsedBloodQuery } from "@/lib/blood/voice";
-import { geoApi } from "@/services/geo";
 import { BloodApiError, bloodApi } from "@/services/blood/api";
 import { BLOOD_COMPONENTS } from "@/services/blood/types";
 import type { AvailabilityResponse, AvailabilityRow, BloodComponent } from "@/services/blood/types";
@@ -61,21 +60,6 @@ type DirectoryListing = {
 };
 
 type Area = { latitude: number; longitude: number; formatted: string };
-
-/** A search origin obtained from the device, used instead of a typed place name. */
-type SearchOrigin = { latitude: number; longitude: number; label: string };
-
-/**
- * The state of the "use my current location" control. Location is requested
- * only when the person presses the button — never on mount — so the idle state
- * is the honest default.
- */
-type GeoState =
-  | { kind: "idle" }
-  | { kind: "locating" }
-  | { kind: "ready"; label: string }
-  | { kind: "denied" }
-  | { kind: "unavailable" };
 
 type SearchState =
   | { kind: "idle" }
@@ -154,7 +138,6 @@ export function BloodAvailabilitySearch() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [state, setState] = useState<SearchState>({ kind: "idle" });
   const [voiceReadback, setVoiceReadback] = useState<ParsedBloodQuery | null>(null);
-  const [geo, setGeo] = useState<GeoState>({ kind: "idle" });
 
   const filtersRef = useRef(filters);
   const appliedVoice = useRef(false);
@@ -165,12 +148,12 @@ export function BloodAvailabilitySearch() {
     filtersRef.current = filters;
   }, [filters]);
 
-  const runSearch = useCallback(async (snapshot: Filters, origin?: SearchOrigin) => {
+  const runSearch = useCallback(async (snapshot: Filters) => {
     const city = snapshot.city.trim();
     const stateName = snapshot.state.trim();
     const pin = snapshot.postalCode.trim();
 
-    if (!origin && !city && !stateName && !pin) {
+    if (!city && !stateName && !pin) {
       setState({
         kind: "error",
         filters: snapshot,
@@ -185,25 +168,16 @@ export function BloodAvailabilitySearch() {
 
     // The maps lookup runs first so its coordinates can be handed to the
     // registry query, which turns distances from null into real kilometres.
-    // When the device supplied a coordinate directly, that is the origin and
-    // the typed place names are not needed to find the area.
-    let area: Area | null = origin
-      ? { latitude: origin.latitude, longitude: origin.longitude, formatted: origin.label }
-      : null;
+    let area: Area | null = null;
     let directory: DirectoryListing[] = [];
     let directoryNote: string | null = null;
-    if (origin || city || stateName) {
+    if (city || stateName) {
       try {
-        const nearby = await bloodApi.nearby(
-          origin
-            ? { lat: origin.latitude, lng: origin.longitude }
-            : { ...(city ? { city } : {}), ...(stateName ? { state: stateName } : {}) },
-        );
-        // A device coordinate is more precise than a geocoded place name, so
-        // keep it; only borrow the provider's label when we have none.
-        area = origin
-          ? { latitude: origin.latitude, longitude: origin.longitude, formatted: nearby.area?.formatted || origin.label }
-          : nearby.area ?? null;
+        const nearby = await bloodApi.nearby({
+          ...(city ? { city } : {}),
+          ...(stateName ? { state: stateName } : {}),
+        });
+        area = nearby.area ?? null;
         directory = Array.isArray(nearby.facilities) ? nearby.facilities : [];
       } catch (error) {
         directoryNote =
@@ -287,113 +261,20 @@ export function BloodAvailabilitySearch() {
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  /**
-   * Location is requested here and nowhere else — never on mount, never in the
-   * background. A refusal is not an error state: it simply means the person
-   * searches by state, city or PIN instead, which the form below still allows.
-   */
-  const handleUseMyLocation = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setGeo({ kind: "unavailable" });
-      return;
-    }
-
-    setGeo({ kind: "locating" });
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-
-        // The place label is cosmetic and only used in the "near …" line.
-        // A failure here must not stop the search — the coordinate is enough.
-        let label = "your current location";
-        try {
-          const place = await geoApi.reverseGeocode(latitude, longitude);
-          if (place.formatted) label = place.formatted;
-        } catch {
-          label = "your current location";
-        }
-
-        setGeo({ kind: "ready", label });
-        void runSearch(filtersRef.current, { latitude, longitude, label });
-      },
-      (error) => {
-        // 1 = permission denied, 2 = position unavailable, 3 = timeout.
-        setGeo({ kind: error.code === 1 ? "denied" : "unavailable" });
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-    );
-  }, [runSearch]);
-
   const activeFilters = state.kind === "ready" || state.kind === "error" ? state.filters : null;
   const busy = state.kind === "loading";
 
   return (
     <section id="availability-search" className="section-shell section-pad scroll-mt-28">
       <SectionHeading
-        as="h1"
-        eyebrow="Search blood by location"
-        title="Find Blood Near You"
-        description="Search verified blood centres by location and blood group. Two sources are shown separately and never mixed — stock that approved facilities have actually reported to MEDIPAL, and a maps directory of real hospitals and blood banks — and every figure says where it came from and when it was last reported."
+        eyebrow="Availability search"
+        title="Search reported blood availability"
+        description="Two sources, shown separately and never mixed: stock that approved facilities have actually reported to MEDIPAL, and a maps directory of real hospitals and blood banks. Every figure says where it came from and when it was last reported."
       />
 
       <div className="mt-14 grid gap-6 lg:grid-cols-[0.95fr_1fr] lg:gap-8">
         <GlassCard hairline interactive={false} className="p-7 sm:p-9">
           <form onSubmit={handleSubmit} className="grid gap-5">
-            {/* Location first: the fastest way in, and the only place the
-                browser's position is ever requested. */}
-            <div className="rounded-2xl border border-brand-tint bg-brand-wash p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleUseMyLocation}
-                  disabled={geo.kind === "locating" || busy}
-                >
-                  {geo.kind === "locating" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Navigation className="h-4 w-4" aria-hidden />
-                  )}
-                  {geo.kind === "locating" ? "Finding your location…" : "Use my current location"}
-                </button>
-                <p className="min-w-[12rem] flex-1 text-xs leading-relaxed text-content-secondary">
-                  Your browser is asked for your position only when you press this button, and never
-                  in the background.
-                </p>
-              </div>
-
-              {geo.kind === "ready" ? (
-                <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-content-secondary">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
-                  Searching near {geo.label}.
-                </p>
-              ) : null}
-
-              {geo.kind === "denied" ? (
-                <p className="mt-3 flex items-start gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs leading-relaxed text-content-secondary">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-content-secondary" aria-hidden />
-                  Your location has not been shared. Nothing was detected. You can still search by
-                  state, city or PIN code below.
-                </p>
-              ) : null}
-
-              {geo.kind === "unavailable" ? (
-                <p className="mt-3 flex items-start gap-2 rounded-xl border border-line bg-white px-3 py-2 text-xs leading-relaxed text-content-secondary">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden />
-                  Your device could not provide a location. Search by state, city or PIN code
-                  instead.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="h-px flex-1 bg-line" aria-hidden />
-              <span className="text-xs font-medium text-content-secondary">
-                or search by area
-              </span>
-              <span className="h-px flex-1 bg-line" aria-hidden />
-            </div>
-
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="field-label" htmlFor="availability-group">

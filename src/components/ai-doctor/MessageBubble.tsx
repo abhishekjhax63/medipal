@@ -1,4 +1,4 @@
-import { Check, Copy, Sparkles, User, Image as ImageIcon } from "lucide-react";
+import { Check, Copy, Sparkles, User, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ChatMessage } from "@/types/aiDoctor";
 
@@ -54,7 +54,7 @@ export function MessageBubble({ message, demo = false, copied, onCopy }: Message
             <div className="flex flex-wrap gap-2 mb-1">
               {message.attachments.map((attachment, i) => (
                 <div key={i} className="flex items-center gap-1.5 rounded-lg border border-line bg-white/50 px-2 py-1 text-[0.7rem] text-content-secondary">
-                  <ImageIcon className="h-3 w-3" aria-hidden />
+                  {attachment.kind === "image" ? <ImageIcon className="h-3 w-3" aria-hidden /> : <VideoIcon className="h-3 w-3" aria-hidden />}
                   <span className="max-w-[120px] truncate">{attachment.name}</span>
                 </div>
               ))}

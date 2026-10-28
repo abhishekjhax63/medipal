@@ -14,22 +14,15 @@ import { DonationAwareness } from "@/components/blood-bank/DonationAwareness";
 import { BloodBankFaq } from "@/components/blood-bank/BloodBankFaq";
 import { scrollToId } from "@/components/blood-bank/bloodBankScroll";
 
-/**
- * Full Blood Bank experience, rendered at `/blood-bank`.
- *
- * The location search is deliberately the first thing on the page (spec §6):
- * someone arriving here is usually looking for blood near a specific place, so
- * nothing — no banner, no hero, no promotion — is allowed to sit above it.
- * The hero band and the rest of the storytelling follow underneath.
- */
+/** Full Blood Bank experience rendered at the default route. */
 export function BloodBankExperience() {
   return (
     <main className="relative">
-      <BloodAvailabilitySearch />
       <BloodBankHero />
       <QuickActions />
       <BloodGroupExplorer />
       <DonorInterestForm />
+      <BloodAvailabilitySearch />
       <BloodFacilityDirectory />
       <BloodNetworkMap />
       <BloodRequestWizard />

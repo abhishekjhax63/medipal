@@ -118,7 +118,7 @@ export default function AmbulanceTrackPage() {
   );
 
   return (
-    <main className="section-shell pt-12 pb-20 sm:pt-14">
+    <main className="section-shell pt-28 pb-20 sm:pt-32">
       <div className="mb-6">
         <Link
           to="/ambulance"

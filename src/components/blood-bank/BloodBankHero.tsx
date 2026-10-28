@@ -16,13 +16,14 @@ export function BloodBankHero() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative isolate flex items-center overflow-hidden py-16 sm:py-20 lg:py-24">
-      {/* A calm, static wash. The drifting blooms and glow rings that used to sit
-          behind this band were removed with the rest of the decorative layer:
-          they competed with the search panel directly above. */}
+    <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden pb-16 pt-28 sm:pt-32 lg:pb-24">
+      {/* Atmospheric blush / crimson illumination on the light foundation */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(96%_70%_at_14%_-10%,rgba(18,119,90,0.07),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(60%_54%_at_94%_10%,rgba(255,231,237,0.6),transparent_62%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(118%_82%_at_16%_-12%,rgba(233,30,77,0.14),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(72%_62%_at_92%_16%,rgba(255,231,237,0.72),transparent_60%)]" />
+        <div className="absolute -left-24 top-8 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(circle,rgba(240,68,82,0.16),transparent_66%)] blur-3xl motion-safe:animate-drift-glow" />
+        <div className="absolute -right-32 bottom-0 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgba(194,24,58,0.14),transparent_68%)] blur-3xl motion-safe:animate-drift-glow [animation-delay:-9s]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent" />
       </div>
 
       <div className="section-shell relative grid items-center gap-14 lg:grid-cols-[1.04fr_1fr] lg:gap-10">
@@ -36,16 +37,16 @@ export function BloodBankHero() {
             MEDIPAL BLOOD BANK
           </motion.p>
 
-          <motion.h2
+          <motion.h1
             variants={fadeUp}
-            className="mt-6 font-display text-[clamp(2.1rem,5vw,3.4rem)] font-semibold leading-[1.06] tracking-[-0.03em] text-content-primary"
+            className="mt-6 font-display text-[clamp(2.6rem,7vw,4.6rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-content-primary"
           >
             Give Blood. <span className="text-gradient-red">Save Lives.</span>
-          </motion.h2>
+          </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="mt-6 max-w-xl text-base leading-relaxed text-content-secondary sm:text-[1.05rem]"
+            className="mt-7 max-w-xl text-base leading-relaxed text-content-secondary sm:text-[1.08rem]"
           >
             Connect with blood donors, discover verified availability, and help patients find the
             support they need.

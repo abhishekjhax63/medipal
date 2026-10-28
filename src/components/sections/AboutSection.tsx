@@ -50,7 +50,7 @@ export function AboutSection() {
   const { openLogin } = useUI();
 
   return (
-    <section aria-labelledby="about-heading" className="section-pad relative pt-12 sm:pt-16">
+    <section aria-labelledby="about-heading" className="section-pad relative pt-32 sm:pt-40">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-24 left-1/2 h-72 w-[34rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(233,30,77,0.12),transparent_70%)] blur-3xl" />
       </div>
@@ -115,7 +115,7 @@ export function AboutSection() {
         </Reveal>
 
         <Reveal className="mt-12 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-          <Link to="/blood-bank" className="btn-primary">
+          <Link to="/" className="btn-primary">
             Explore the Blood Bank
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
