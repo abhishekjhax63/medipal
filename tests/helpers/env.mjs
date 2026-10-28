@@ -21,6 +21,14 @@ process.env.BLOOD_PROVIDER_ATTEMPTS ??= "3";
 process.env.BLOOD_PROVIDER_BACKOFF_MS ??= "50";
 process.env.BLOOD_PROVIDER_TIMEOUT_MS ??= "1500";
 
+// Overpass retry policy. A real deployment backs off for over a second between
+// attempts, which would make the retry tests sleep for seconds for no reason.
+// 100 ms is the floor `server/env.mjs` enforces for this key.
+process.env.OSM_OVERPASS_ATTEMPTS ??= "3";
+process.env.OSM_OVERPASS_BACKOFF_MS ??= "100";
+process.env.OSM_OVERPASS_TIMEOUT_MS ??= "1500";
+process.env.OSM_OVERPASS_DEADLINE_MS ??= "5000";
+
 // A deliberately fake platform-admin key for the authorization tests. It is not
 // a credential — no deployment should ever use it — and pinning it here keeps
 // the admin path testable regardless of what a developer has in `.env.server`.

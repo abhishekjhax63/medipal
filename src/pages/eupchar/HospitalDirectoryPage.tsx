@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import { EuDatasetNote, EuPageHeader, EuShell } from "@/components/eupchar/EuShell";
 import { EuBadge, EuCard, EuEmptyState, EuNotice, EuSectionTitle } from "@/components/eupchar/ui";
 import { PracticeModeExplainer, PracticeModeToggle } from "@/components/eupchar/PracticeModeToggle";
+import { FacilityFinder } from "@/components/facilities/FacilityFinder";
 import { groupHospitalsByDistrict, hospitalDatasetMeta, matchesHospitalQuery } from "@/data/eupchar/directory";
 import { useEuStore } from "@/hooks/eupchar/useEuStore";
 import { formatPhone } from "@/lib/eupchar/format";
@@ -55,7 +56,7 @@ export default function HospitalDirectoryPage() {
       <EuPageHeader
         eyebrow="E-UPCHAR · Bihar"
         title="Hospital Directory"
-        description={`Every hospital below comes from the verified dataset — ${hospitalDatasetMeta.recordCount} row-level records across Bihar. MEDIPAL adds no hospital of its own.`}
+        description="Live hospitals and clinics from OpenStreetMap for any location, alongside the verified PM-JAY Bihar extract MEDIPAL prepared offline. Neither list contains a facility MEDIPAL invented."
         actions={
           <>
             <Link to="/e-upchar/location" className="eu-btn eu-btn-secondary gap-1.5 px-3.5 py-2 text-[0.82rem]">
@@ -69,7 +70,24 @@ export default function HospitalDirectoryPage() {
 
       <PracticeModeExplainer className="mb-5" />
 
-      <div className="grid gap-3 sm:grid-cols-[1.6fr_auto] sm:items-end">
+      <EuCard className="p-5 sm:p-7">
+        <FacilityFinder
+          tone="eupchar"
+          title="Search real hospitals & clinics near you"
+          description="Live results from OpenStreetMap — real names, addresses, coordinates, phone numbers and websites. A field the source does not publish is left empty, never filled in with a guess."
+          initialRadiusKm={10}
+          notice="A listed facility is a location, not a confirmed service list, price or appointment slot. MEDIPAL invents no doctor, service or opening hour that the source does not carry."
+        />
+      </EuCard>
+
+      <div className="mt-10">
+        <EuSectionTitle
+          title="Verified PM-JAY Bihar extract"
+          description={`A separate, offline source — ${hospitalDatasetMeta.recordCount} row-level records across ${hospitalDatasetMeta.publishedDistrictCount} districts, prepared by MEDIPAL from the government empanelment extract. This is a fixed dataset, not a live search.`}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-[1.6fr_auto] sm:items-end">
         <div className="relative">
           <label className="eu-label" htmlFor="hospital-search">
             Search hospitals

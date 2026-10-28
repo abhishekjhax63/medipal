@@ -40,6 +40,58 @@ The timestamp expires after five minutes. Provision the authenticated person in
 `eupchar_users`; only a row whose `role` is `admin` can use the E-UPCHAR admin
 write endpoints. Never substitute a browser-selected role or a fixed user id.
 
+## Real hospital & blood-service directory (OpenStreetMap)
+
+The Blood Bank and E-UPCHAR sections search **real** healthcare facilities
+through OpenStreetMap. There is one live source, used by both:
+
+- **Nominatim** (`/search`, `/reverse`) turns a typed city, area or PIN code —
+  or a device fix — into coordinates.
+- **Overpass API** returns the hospitals, clinics, blood services, pharmacies,
+  doctors and dentists around those coordinates, tagged exactly as contributors
+  recorded them.
+
+Both services are public and keyless, so MEDIPAL stores no credential for them
+and the browser calls nothing directly — every request is proxied by
+`server/overpass.mjs`.
+
+Endpoints: `GET /api/facilities/health`, `GET /api/facilities/geocode`,
+`GET /api/facilities/reverse`, `GET /api/facilities/search`.
+
+Usage policy — see the `OSM_*` values in `.env.server.example`:
+
+- An identifying `User-Agent` and a contact address are required by Nominatim.
+  Set `OSM_USER_AGENT` and `OSM_CONTACT_EMAIL` before production use.
+- Nominatim calls are serialised to at most one request per second, and every
+  provider response is cached in-process.
+- The public Overpass endpoint is for light use. A deployment doing real volume
+  should self-host Nominatim and Overpass (or use a commercial geocoder) and
+  point `OSM_NOMINATIM_URL` / `OSM_OVERPASS_URL` at it.
+- `GET /api/facilities/search` is rate-limited per IP. No restricted site is
+  scraped.
+
+Honesty contract:
+
+- Only fields OpenStreetMap actually carries are returned. Everything else is
+  `null`, and the UI renders "Not published in OpenStreetMap".
+- A mapped facility is a **location**, not proof of blood stock, a service menu,
+  a price or an available doctor. Blood-service entries always show
+  "Blood availability has not been verified. Please contact the facility."
+- Duplicate node/way pairs are collapsed; a record with neither a name nor an
+  address is dropped rather than shown as an anonymous pin.
+- Fabricated hospitals are never substituted when a provider call fails. Every
+  result shows the OpenStreetMap attribution, the retrieval time and a link to
+  its source record.
+
+Attribution: © OpenStreetMap contributors, Open Database License (ODbL) 1.0.
+
+## E-UPCHAR hospital directory
+
+`/e-upchar/hospitals` shows two clearly separated sources: the **live
+OpenStreetMap search** above, and the **verified PM-JAY Bihar extract** below —
+a fixed offline dataset of owner-authorised records. The extract is not a live
+search and is labelled as such.
+
 ## AI Doctor media analysis
 
 Set `AI_BASE_URL`, `AI_API_KEY`, and `AI_MODEL` in `.env.server`. The configured

@@ -5,6 +5,9 @@
  *  - proxies AI Doctor conversations to the configured provider (key server-side),
  *  - creates and verifies Razorpay payments (secret server-side),
  *  - proxies Geoapify geocoding, static maps and nearby-facility search,
+ *  - searches real hospitals, clinics and blood services on OpenStreetMap
+ *    (Nominatim geocoding + Overpass), used by the Blood Bank and E-UPCHAR
+ *    sections,
  *  - reports which integrations are configured at `GET /api/health`,
  *  - serves the built frontend from `dist/` in production (SPA fallback).
  *
@@ -19,6 +22,15 @@ import { sendJson, sendError, readJsonBody } from "./http.mjs";
 import { aiCapabilities, aiConfigured, requestChat } from "./ai.mjs";
 import { paymentsConfigured } from "./payments.mjs";
 import { geoConfigured, geocode, reverseGeocode, staticMap, nearbyPlaces } from "./geo.mjs";
+import {
+  FACILITY_KINDS,
+  OSM_ATTRIBUTION,
+  OSM_SOURCES,
+  facilityDirectoryReady,
+  geocodePlace,
+  reverseGeocodePoint,
+  searchFacilities,
+} from "./overpass.mjs";
 import { handleBloodRoute } from "./blood.mjs";
 import { handleLiveBloodRoute } from "./blood/live-routes.mjs";
 import { startScheduler } from "./blood/scheduler.mjs";
@@ -46,6 +58,15 @@ const MIME = {
   ".txt": "text/plain; charset=utf-8",
   ".map": "application/json; charset=utf-8",
 };
+
+/**
+ * Parses a numeric query parameter. Absent or blank values become `NaN`, so a
+ * missing `lat`/`lng` is never silently read as the real coordinate (0, 0).
+ */
+function numberParam(value) {
+  if (typeof value !== "string" || value.trim() === "") return Number.NaN;
+  return Number(value);
+}
 
 /** Resolves a request path to a file inside `dist`, guarding against traversal. */
 function resolveStaticPath(urlPath) {
@@ -101,6 +122,7 @@ async function handleApi(request, response, url) {
         ai: aiConfigured ? "live" : "not_configured",
         payments: paymentsConfigured ? "live" : "not_configured",
         maps: geoConfigured ? "live" : "not_configured",
+        facilityDirectory: facilityDirectoryReady ? "live" : "not_configured",
         bloodDatabase: database.status,
         bloodAdminConsole: readiness.bloodAdmin ? "live" : "not_configured",
         ambulanceDatabase: database.status,
@@ -112,7 +134,101 @@ async function handleApi(request, response, url) {
       bloodDataSources:
         "e-RaktKosh exposes no authorized public API; MEDIPAL does not circumvent its access control. " +
         "See GET /api/blood/sources for the full provenance register.",
+      facilityDataSources:
+        "Real hospitals, clinics and blood services come from OpenStreetMap " +
+        "(Nominatim geocoding + Overpass directory). A mapped facility is not " +
+        "evidence of blood stock, a service menu or a doctor.",
     });
+    return true;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Real hospital & healthcare facility search (OpenStreetMap)        */
+  /* ---------------------------------------------------------------- */
+  /* OpenStreetMap is public and keyless, so this works without any    */
+  /* credential. Nothing here is cached in the browser or invented:    */
+  /* a tag the source does not carry is returned as null.              */
+
+  if (path === "/api/facilities/health" && request.method === "GET") {
+    sendJson(response, 200, {
+      status: facilityDirectoryReady ? "live" : "not_configured",
+      provider: "OpenStreetMap",
+      geocoder: OSM_SOURCES.geocoder,
+      directory: OSM_SOURCES.directory,
+      attribution: OSM_ATTRIBUTION,
+      facilityKinds: FACILITY_KINDS,
+      policy:
+        "Public services only. Responses are cached, Nominatim calls are serialised to one request per second, and no restricted site is scraped.",
+    });
+    return true;
+  }
+
+  if (path === "/api/facilities/geocode" && request.method === "GET") {
+    const place = await geocodePlace(url.searchParams.get("q") || "");
+    if (!place) {
+      sendJson(response, 404, {
+        error: "No place matched that name. Try a city, area or 6-digit PIN code.",
+        code: "PLACE_NOT_FOUND",
+      });
+      return true;
+    }
+    sendJson(response, 200, { ...place, attribution: OSM_ATTRIBUTION });
+    return true;
+  }
+
+  if (path === "/api/facilities/reverse" && request.method === "GET") {
+    const place = await reverseGeocodePoint(
+      numberParam(url.searchParams.get("lat")),
+      numberParam(url.searchParams.get("lon")),
+    );
+    sendJson(response, 200, { ...place, attribution: OSM_ATTRIBUTION });
+    return true;
+  }
+
+  if (path === "/api/facilities/search" && request.method === "GET") {
+    // Protects the public OpenStreetMap services from a runaway client, and
+    // keeps MEDIPAL inside their usage policy.
+    enforceRateLimit(`facilities:${request.socket.remoteAddress || "unknown"}`, { max: 40 });
+    const query = (url.searchParams.get("q") || "").trim();
+    // Read the parameters as strings first: `Number(null)` is `0`, so a missing
+    // `lat`/`lng` would otherwise be treated as a real (0, 0) coordinate.
+    const latitude = numberParam(url.searchParams.get("lat"));
+    const longitude = numberParam(url.searchParams.get("lng"));
+    const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+    if (!hasCoordinates && !query) {
+      sendJson(response, 400, {
+        error: "Enter a city, area or PIN code — or share your location — so MEDIPAL knows where to look.",
+        code: "AREA_REQUIRED",
+      });
+      return true;
+    }
+
+    // The place lookup happens first so its coordinates drive the directory
+    // query. A failed lookup is reported as such; results are never invented.
+    const origin = hasCoordinates
+      ? { latitude, longitude, formatted: query || null, source: null }
+      : await geocodePlace(query);
+
+    if (!origin) {
+      sendJson(response, 404, {
+        error: `MEDIPAL could not place “${query}” on the map, so no facility search was run.`,
+        code: "PLACE_NOT_FOUND",
+      });
+      return true;
+    }
+
+    const radiusKm = Number(url.searchParams.get("radiusKm"));
+    const result = await searchFacilities({
+      latitude: origin.latitude,
+      longitude: origin.longitude,
+      radiusMeters: Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm * 1000 : undefined,
+      types: (url.searchParams.get("types") || "").split(",").filter(Boolean),
+      limit: Number(url.searchParams.get("limit")),
+      sortBy: url.searchParams.get("sort") === "name" ? "name" : "distance",
+    });
+
+    sendJson(response, 200, { ...result, origin, areaLabel: origin.formatted ?? null });
     return true;
   }
 

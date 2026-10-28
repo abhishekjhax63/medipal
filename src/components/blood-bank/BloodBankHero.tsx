@@ -1,7 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BookOpen, HeartHandshake, Search, LayoutDashboard } from "lucide-react";
 import { Link } from "react-router-dom";
-import { BloodDNAVisual } from "@/components/blood-bank/BloodDNAVisual";
+import { BloodBankHeroVideo } from "@/components/blood-bank/BloodBankHeroVideo";
 import { scrollToId } from "@/components/blood-bank/bloodBankScroll";
 import { EASE_SMOOTH, fadeUp, staggerContainer } from "@/lib/animations";
 
@@ -9,7 +9,8 @@ const trustChips = ["ABO & Rh guidance", "Donor interest registration", "AI heal
 
 /**
  * Immersive full-height opening for the Blood Bank experience.
- * Pointer reactivity lives entirely inside the DNA visual.
+ * The hero centrepiece is the framed video visual; playback behaviour lives
+ * entirely inside it.
  */
 export function BloodBankHero() {
   const reduce = useReducedMotion();
@@ -100,9 +101,9 @@ export function BloodBankHero() {
           initial={reduce ? false : { opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 1.1, ease: EASE_SMOOTH, delay: 0.15 }}
-          className="relative z-0 lg:-mr-10 xl:-mr-20"
+          className="relative z-0 lg:ml-0"
         >
-          <BloodDNAVisual />
+          <BloodBankHeroVideo />
         </motion.div>
       </div>
     </section>

@@ -6,6 +6,7 @@ import { QuickActions } from "@/components/blood-bank/QuickActions";
 import { BloodGroupExplorer } from "@/components/blood-bank/BloodGroupExplorer";
 import { DonorInterestForm } from "@/components/blood-bank/DonorInterestForm";
 import { BloodAvailabilitySearch } from "@/components/blood-bank/BloodAvailabilitySearch";
+import { BloodFacilityDirectory } from "@/components/blood-bank/BloodFacilityDirectory";
 import { BloodNetworkMap } from "@/components/blood-bank/BloodNetworkMap";
 import { BloodRequestWizard } from "@/components/blood-bank/BloodRequestWizard";
 import { BloodRequestTracker } from "@/components/blood-bank/BloodRequestTracker";
@@ -22,6 +23,7 @@ export function BloodBankExperience() {
       <BloodGroupExplorer />
       <DonorInterestForm />
       <BloodAvailabilitySearch />
+      <BloodFacilityDirectory />
       <BloodNetworkMap />
       <BloodRequestWizard />
       <BloodRequestTracker />

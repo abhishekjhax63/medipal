@@ -89,6 +89,36 @@ export const config = {
   geoapify: {
     apiKey: read("GEOAPIFY_API_KEY"),
   },
+  /**
+   * OpenStreetMap facility directory. These are public endpoints that need no
+   * key, so the real hospital search works out of the box. Override the URLs
+   * only to point at a self-hosted Nominatim/Overpass instance, which is what a
+   * deployment handling serious traffic must do — see docs/INTEGRATIONS.md.
+   */
+  osm: {
+    nominatimUrl: read("OSM_NOMINATIM_URL") || "https://nominatim.openstreetmap.org",
+    overpassUrl: read("OSM_OVERPASS_URL") || "https://overpass-api.de/api/interpreter",
+    /**
+     * Nominatim's usage policy requires a descriptive agent identifying the
+     * application. A real contact address should be supplied by the operator.
+     */
+    userAgent:
+      read("OSM_USER_AGENT") ||
+      "MEDIPAL/1.0 (healthcare facility directory; +https://medipal.example)",
+    contactEmail: read("OSM_CONTACT_EMAIL"),
+    /**
+     * The public Overpass instances answer a query that has to wait for a free
+     * worker with a plain `502 At capacity`, and a dense city query can
+     * legitimately take the better part of a minute. A single attempt is
+     * therefore not enough — these bound the retry loop. The attempt timeout
+     * must exceed the slowest realistic query, and the deadline caps the whole
+     * call so a retry can never hang a request.
+     */
+    overpassAttempts: int("OSM_OVERPASS_ATTEMPTS", 3, 1, 6),
+    overpassBackoffMs: int("OSM_OVERPASS_BACKOFF_MS", 1200, 100, 30000),
+    overpassTimeoutMs: int("OSM_OVERPASS_TIMEOUT_MS", 60000, 5000, 120000),
+    overpassDeadlineMs: int("OSM_OVERPASS_DEADLINE_MS", 80000, 5000, 180000),
+  },
   database: {
     /** Least-privilege role used by the running server (RLS applies). */
     url: read("DATABASE_URL"),
@@ -152,6 +182,12 @@ export const readiness = {
   ambulance: Boolean(config.database.url),
   ambulanceAdmin: Boolean(config.blood.adminKey),
   eupcharAuth: Boolean(config.auth.gatewaySecret),
+  /**
+   * The OpenStreetMap directory is always available: both its endpoints are
+   * public and keyless. The flag exists so an operator who points the URLs at a
+   * self-hosted instance still gets an honest status line.
+   */
+  osm: Boolean(config.osm.nominatimUrl && config.osm.overpassUrl),
   /**
    * True only when the official e-RaktKosh integration has been issued an
    * authorised base URL AND the paths those credentials expect. MEDIPAL never
