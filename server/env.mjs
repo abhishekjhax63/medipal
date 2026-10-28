@@ -196,6 +196,14 @@ export const config = {
     /** Shared only with a trusted identity gateway, never a browser. */
     gatewaySecret: read("EUPCHAR_AUTH_GATEWAY_SECRET"),
   },
+  eupchar: {
+    /**
+     * Platform-admin key for the E-UPCHAR price-management console. Mirrors
+     * BLOOD_ADMIN_KEY: it is entered by an operator, sent as
+     * `x-medipal-admin-key`, and never shipped to the browser bundle.
+     */
+    adminKey: read("EUPCHAR_ADMIN_KEY"),
+  },
 };
 
 export const readiness = {
@@ -208,6 +216,8 @@ export const readiness = {
   ambulance: Boolean(config.database.url),
   ambulanceAdmin: Boolean(config.blood.adminKey),
   eupcharAuth: Boolean(config.auth.gatewaySecret),
+  /** True when the E-UPCHAR price console has a platform-admin key. */
+  eupcharAdmin: Boolean(config.eupchar.adminKey),
   /**
    * The OpenStreetMap directory is always available: both its endpoints are
    * public and keyless. The flag exists so an operator who points the URLs at a

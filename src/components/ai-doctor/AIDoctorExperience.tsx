@@ -114,7 +114,7 @@ export function AIDoctorExperience() {
   const handleThinkingChange = useCallback((next: boolean) => setThinking(next), []);
 
   return (
-    <section className="section-shell pt-28 pb-24 sm:pt-32 sm:pb-28 lg:pt-36">
+    <section className="section-shell pt-12 pb-24 sm:pt-14 sm:pb-28 lg:pt-16">
       {!conversationActive && <WelcomeHeader />}
 
       <div

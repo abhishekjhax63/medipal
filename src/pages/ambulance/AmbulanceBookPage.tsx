@@ -21,7 +21,7 @@ export default function AmbulanceBookPage() {
   const initialCategory = readCategory(params.get("category"));
 
   return (
-    <main className="section-shell pt-28 pb-20 sm:pt-32">
+    <main className="section-shell pt-12 pb-20 sm:pt-14">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link

@@ -21,11 +21,38 @@ export type ServiceGroup = "imaging" | "laboratory" | "other";
 export type ServiceKind = "scan" | "test" | "package" | "appointment" | "other";
 
 /**
- * `verified` — confirmed against a permitted source (safe to charge).
- * `practice` — an amount entered in Practice mode. Never a real hospital price.
- * `unverified` — no reliable price available; payment must stay disabled.
+ * The honest price states (spec §Issue-3D). Only the first three can ever put a
+ * figure in front of a patient or into a payment.
+ *
+ * `verified`              — the provider itself confirmed this amount. Chargeable.
+ * `published`             — an official (hospital/lab) page publishes this amount,
+ *                           but the provider has not separately confirmed it. Chargeable.
+ * `free_programme`        — covered by an applicable programme (e.g. Bihar NHM
+ *                           free diagnostic services). Nothing is charged.
+ * `awaiting_confirmation` — a figure exists but has not been confirmed. NOT shown
+ *                           as a price; the UI asks the patient to contact the provider.
+ * `unverified`            — no reliable price available. NOT shown; payment disabled.
+ * `practice`              — an explicitly labelled Practice-mode placeholder. Never a
+ *                           hospital price, and never chargeable.
  */
-export type PriceVerificationStatus = "verified" | "practice" | "unverified";
+export type PriceVerificationStatus =
+  | "verified"
+  | "published"
+  | "free_programme"
+  | "awaiting_confirmation"
+  | "unverified"
+  | "practice";
+
+/** States that may surface a chargeable figure. */
+export const CHARGEABLE_PRICE_STATUSES: readonly PriceVerificationStatus[] = [
+  "verified",
+  "published",
+];
+
+/** The single source of truth for which states render an amount. */
+export function isPriceChargeable(status: PriceVerificationStatus): boolean {
+  return status === "verified" || status === "published";
+}
 
 export type ScheduleSource =
   | "hospital_api"
@@ -159,13 +186,22 @@ export type HospitalService = {
 /* Pricing                                                             */
 /* ------------------------------------------------------------------ */
 
+export type PriceSourceType =
+  | "hospital"
+  | "official_online"
+  | "verified_third_party"
+  /** A government programme/order (e.g. Bihar NHM free diagnostic services). */
+  | "government_programme";
+
 export type PriceSource = {
   readonly id: string;
   readonly name: string;
   readonly url: string | null;
-  readonly type: "hospital" | "official_online" | "verified_third_party";
+  readonly type: PriceSourceType;
   /** Whether the business is legally permitted to publish this source. */
   readonly permitted: boolean;
+  /** ISO date the source was last checked, when known. */
+  readonly checkedOn?: string | null;
 };
 
 /**
@@ -180,7 +216,12 @@ export type ServicePrice = {
   readonly officialOnlinePricePaise: number | null;
   readonly thirdPartyOnlinePricePaise: number | null;
   readonly sourceId: string | null;
+  /** Denormalised for display so a card never has to look the source up. */
+  readonly sourceName: string | null;
+  readonly sourceUrl: string | null;
   readonly lastVerifiedOn: string | null;
+  /** Set when the recorded source was found stale and needs re-checking. */
+  readonly staleDetectedOn: string | null;
   readonly conditions: string | null;
   /** Taxes and additional charges, in paise, added on top of the base price. */
   readonly taxesAndFeesPaise: number | null;
@@ -372,6 +413,89 @@ export type AuditLog = {
   readonly meta: Readonly<Record<string, string | number | boolean | null>>;
 };
 
+/* ------------------------------------------------------------------ */
+/* Price research (Issue 3B/3E)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A real price found on a named, credible source during price research. It is
+ * *evidence*, not a published price: it only becomes one after an administrator
+ * records it against the exact provider it belongs to. Nothing here may be
+ * copied onto a different provider (spec §Issue-3 critical rule).
+ */
+export type PriceResearchState =
+  | "published"
+  | "free_programme"
+  | "awaiting_confirmation"
+  | "unavailable";
+
+export type PriceResearchRecord = {
+  readonly id: string;
+  /** The exact provider name as published by the source. */
+  readonly providerName: string;
+  /** True when this provider also exists in MEDIPAL's verified hospital directory. */
+  readonly inVerifiedDirectory: boolean;
+  /** The MEDIPAL hospital id, or `null` when the provider is not in the directory. */
+  readonly hospitalId: string | null;
+  /** The exact service name as published by the source — never renamed. */
+  readonly serviceName: string;
+  /** Set only when the source's service name maps exactly to a catalogue service. */
+  readonly serviceId: string | null;
+  /** `null` when the source publishes no amount (e.g. an unavailable price). */
+  readonly amountPaise: number | null;
+  readonly currency: "INR";
+  readonly category: string;
+  readonly unit: "individual" | "package" | "addon";
+  readonly sourceName: string;
+  readonly sourceUrl: string;
+  readonly sourceType: PriceSourceType;
+  /** ISO date the source page was read. */
+  readonly checkedOn: string;
+  readonly state: PriceResearchState;
+  /** Eligibility, exclusions, discount framing and other published caveats. */
+  readonly conditions: string | null;
+};
+
+/**
+ * An administration price record as returned by the E-UPCHAR admin API: a
+ * `ServicePrice` joined with the names it belongs to, so the console can show
+ * exactly which provider and service a figure is attached to.
+ */
+export type AdminPriceRecord = ServicePrice & {
+  readonly hospitalName: string | null;
+  readonly serviceName: string | null;
+  readonly statusNote: string | null;
+};
+
+/** How many recorded prices sit in each honest state (spec §Issue-3F review). */
+export type AdminPriceCounts = {
+  readonly verified: number;
+  readonly published: number;
+  readonly free_programme: number;
+  readonly awaiting_confirmation: number;
+  readonly unverified: number;
+  readonly stale: number;
+};
+
+/** One administration action from `eupchar_audit_logs`. */
+export type AdminAuditEntry = {
+  readonly id: string;
+  readonly actorId: string | null;
+  readonly actorRole: UserRole;
+  readonly action: string;
+  readonly entity: string;
+  readonly entityId: string;
+  readonly meta: Record<string, unknown>;
+  readonly createdAt: string;
+};
+
+/** Whether the server has an administration credential configured at all. */
+export type AdminSession = {
+  readonly adminKeyConfigured: boolean;
+  readonly gatewayConfigured: boolean;
+  readonly message: string;
+};
+
 /**
  * Transient client read-model used by the current E-UPCHAR screens. It is never
  * persisted in browser storage. Production reads/writes must be backed by the
@@ -440,7 +564,19 @@ export const E_UPCHAR_COPY = {
   serviceSearchPlaceholder: "Search X-Ray, MRI, CT, blood tests and more",
   emptyCategory:
     "No services are currently listed in this category for the selected hospital.",
+  /** Spec §Issue-3D state (4): no reliable price is known. Never "₹0". */
   priceUnavailable: "Price unavailable — contact the hospital.",
+  /** Spec §Issue-3D state (1): an official source publishes this amount. */
+  pricePublished: "Published price",
+  /** Spec §Issue-3D state (1, stronger): the provider confirmed this amount. */
+  priceProviderConfirmed: "Provider confirmed",
+  /** Spec §Issue-3D state (2): covered by an applicable programme. */
+  priceFreeProgramme: "Free under applicable programme",
+  /** Spec §Issue-3D state (3): a figure exists but is not confirmed. */
+  priceNotConfirmed: "Price not confirmed — contact the provider.",
+  /** Shown whenever a recorded source has been flagged stale. */
+  priceSourceStale:
+    "The recorded source has been marked stale. Confirm the amount with the provider before paying.",
   preparationFallback:
     "Please confirm preparation requirements with the selected hospital.",
   schedulingNotConnected:

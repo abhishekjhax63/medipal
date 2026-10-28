@@ -9,6 +9,7 @@
 
 import { buildHospitalServiceView, matchesHospitalQuery, matchesServiceQuery, verifiedHospitalEntities } from "@/data/eupchar/directory";
 import { buildPracticeHospitalServices, buildPracticeServicePrices, buildPracticeSlots, practicePriceSource } from "@/data/eupchar/practiceData";
+import { verifiedHospitalServices, verifiedServicePrices } from "@/data/eupchar/publishedPrices";
 import { serviceCategories, serviceCategoriesById, services } from "@/data/eupchar/serviceCatalog";
 import type { AuditLog, Booking, BookingItem, BookingStatus, EUpcharState, Hospital, HospitalService, HospitalServiceView, Invoice, LocationSelection, Patient, PatientDocument, Payment, PaymentStatus, PriceSource, ServicePrice } from "@/types/eupchar";
 
@@ -50,8 +51,14 @@ export function subscribeEupchar(listener: () => void) { listeners.add(listener)
 export type PatientInput = Pick<Patient, "fullName" | "dateOfBirth" | "gender" | "phone" | "email" | "relationship" | "address" | "emergencyContact" | "identity">;
 export type BookingInput = Pick<Booking, "patientId" | "hospitalId" | "serviceId" | "appointmentStartsAt" | "appointmentEndsAt" | "scheduleSource" | "prescriptionDocumentId" | "notes">;
 
-function actualServices(current: EUpcharState) { return current.practiceMode ? buildPracticeHospitalServices(verifiedHospitalEntities.map((hospital) => hospital.id)) : current.hospitalServices; }
-function actualPrices(current: EUpcharState) { return current.practiceMode ? buildPracticeServicePrices(verifiedHospitalEntities.map((hospital) => hospital.id)) : current.servicePrices; }
+/**
+ * Practice mode replaces the catalogue entirely with labelled placeholders.
+ * Otherwise the production catalogue is the published, sourced baseline plus
+ * anything a session has overridden — session values win so an administrator's
+ * correction is what a patient sees.
+ */
+function actualServices(current: EUpcharState) { return current.practiceMode ? buildPracticeHospitalServices(verifiedHospitalEntities.map((hospital) => hospital.id)) : [...current.hospitalServices, ...verifiedHospitalServices]; }
+function actualPrices(current: EUpcharState) { return current.practiceMode ? buildPracticeServicePrices(verifiedHospitalEntities.map((hospital) => hospital.id)) : [...current.servicePrices, ...verifiedServicePrices]; }
 function actualSlots(current: EUpcharState) { return current.practiceMode ? buildPracticeSlots(verifiedHospitalEntities.map((hospital) => hospital.id)) : []; }
 
 export function selectAllHospitals(current = state): Hospital[] {

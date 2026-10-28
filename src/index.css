@@ -5,17 +5,23 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* Global MEDIPAL palette — white, blush pink, crimson. */
+    /* Global MEDIPAL palette — warm off-white, charcoal, healthcare green,
+       with the MEDIPAL red/pink kept as a restrained brand accent. */
+    --medipal-brand: #12775a;
+    --medipal-brand-bright: #1a8f6c;
+    --medipal-brand-deep: #0c5b45;
+    --medipal-brand-tint: #e6f1ec;
     --medipal-crimson: #e91e4d;
     --medipal-red: #f04452;
     --medipal-red-soft: #c2183a;
     --medipal-burgundy: #4c1028;
     --medipal-blush: #ffe7ed;
     --medipal-blush-soft: #fff5f7;
-    --medipal-ink: #17171c;
-    --medipal-muted: #686873;
-    --medipal-line: #e8dde1;
+    --medipal-ink: #1f2933;
+    --medipal-muted: #5c6875;
+    --medipal-line: #e2e4e1;
     --medipal-surface: #ffffff;
+    --medipal-canvas: #fbfbf9;
   }
 
   html {
@@ -24,19 +30,19 @@
   }
 
   body {
-    @apply bg-white font-sans text-content-primary antialiased;
+    @apply bg-canvas font-sans text-content-primary antialiased;
     margin: 0;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
   ::selection {
-    background: rgba(233, 30, 77, 0.18);
-    color: #17171c;
+    background: rgba(18, 119, 90, 0.16);
+    color: #1f2933;
   }
 
   :focus-visible {
-    outline: 2px solid rgba(233, 30, 77, 0.65);
+    outline: 2px solid var(--medipal-brand);
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -55,7 +61,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(23, 23, 28, 0.16) transparent;
+    scrollbar-color: rgba(31, 41, 51, 0.16) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -68,113 +74,60 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(23, 23, 28, 0.14);
+    background: rgba(31, 41, 51, 0.16);
     border-radius: 9999px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(233, 30, 77, 0.4);
+    background: rgba(18, 119, 90, 0.42);
     background-clip: content-box;
   }
 }
 
 @layer components {
-  /* ---------- Glass surfaces ----------
-     The whole application now sits on white / blush, so every glass
-     treatment is a frosted *light* surface with a hairline border. */
+  /* ---------- Surfaces ----------
+     The legacy `.glass-*` class names are kept because dozens of components
+     already reference them — but the treatment they describe is now a calm,
+     near-opaque card. Heavy blur, glow and pointer-tracked sheen were removed
+     deliberately: they made medical content harder to read and made the
+     product look decorative rather than trustworthy. */
   .glass-panel {
     position: relative;
-    background: linear-gradient(
-      152deg,
-      rgba(255, 255, 255, 0.86) 0%,
-      rgba(255, 255, 255, 0.68) 46%,
-      rgba(255, 245, 247, 0.78) 100%
-    );
-    border: 1px solid rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    background: #ffffff;
+    border: 1px solid var(--medipal-line);
     box-shadow:
-      0 20px 50px -28px rgba(76, 16, 40, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -1px 0 rgba(233, 30, 77, 0.04);
+      0 1px 2px rgba(31, 41, 51, 0.05),
+      0 10px 26px -18px rgba(31, 41, 51, 0.18);
   }
 
   .glass-panel-soft {
     position: relative;
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.78) 0%,
-      rgba(255, 255, 255, 0.58) 60%,
-      rgba(255, 245, 247, 0.68) 100%
-    );
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    box-shadow:
-      0 14px 38px -24px rgba(76, 16, 40, 0.18),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    background: var(--medipal-canvas);
+    border: 1px solid var(--medipal-line);
+    box-shadow: 0 1px 2px rgba(31, 41, 51, 0.04);
   }
 
   /* Retained name: the AI Doctor and E-UPCHAR surfaces. */
   .glass-light {
     position: relative;
-    background: linear-gradient(
-      150deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.72) 48%,
-      rgba(255, 245, 248, 0.8) 100%
-    );
-    border: 1px solid rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    background: #ffffff;
+    border: 1px solid var(--medipal-line);
     box-shadow:
-      0 24px 60px -30px rgba(76, 16, 40, 0.24),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      0 1px 2px rgba(31, 41, 51, 0.05),
+      0 10px 26px -18px rgba(31, 41, 51, 0.18);
   }
 
-  /* Pointer-tracked reflection layer. Consumers set --mx / --my via refs. */
+  /* Kept as a no-op so existing markup stays valid; the pointer-tracked
+     reflection was removed as part of the redesign. */
   .glass-sheen::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: radial-gradient(
-      420px circle at var(--mx, 50%) var(--my, 0%),
-      rgba(255, 255, 255, 0.85),
-      rgba(255, 231, 237, 0.35) 38%,
-      transparent 68%
-    );
-    opacity: 0;
-    transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
+    content: none;
   }
 
-  .glass-sheen:hover::before,
-  .glass-sheen:focus-within::before {
-    opacity: 1;
-  }
-
-  /* Thin crimson hairline along the top edge of a panel */
+  /* Ruled hairline along the top edge of a panel. */
   .glass-hairline::after {
-    content: "";
-    position: absolute;
-    left: 12%;
-    right: 12%;
-    top: 0;
-    height: 1px;
-    border-radius: 9999px;
-    pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(233, 30, 77, 0.5),
-      rgba(255, 255, 255, 0.9),
-      rgba(233, 30, 77, 0.5),
-      transparent
-    );
-    opacity: 0.9;
+    content: none;
   }
 
   /* ---------- Typography helpers ---------- */
@@ -185,45 +138,40 @@
     color: transparent;
   }
 
+  /* Small label above a heading. Tracking is deliberately light — the old
+     0.34em spread made short labels hard to read at a glance. */
   .eyebrow {
-    @apply font-manrope text-[0.7rem] font-semibold uppercase tracking-[0.34em] text-content-secondary;
+    @apply text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-brand-deep;
   }
 
-  /* ---------- Buttons ---------- */
+  /* ---------- Buttons ----------
+     One primary action colour across the whole platform: the healthcare
+     green. MEDIPAL red is reserved for the emergency action, so a red button
+     always means "this is urgent" rather than "this is the main button". */
   .btn {
-    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-all duration-300 ease-smooth;
+    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-200;
     @apply disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   .btn-primary {
-    @apply btn text-white;
-    background: linear-gradient(120deg, #f04452 0%, #e91e4d 52%, #c2183a 100%);
-    box-shadow:
-      0 16px 36px -18px rgba(233, 30, 77, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    @apply btn bg-brand text-white;
+    background-image: linear-gradient(140deg, #1a8f6c 0%, #12775a 55%, #0c5b45 100%);
+    box-shadow: 0 8px 20px -12px rgba(12, 91, 69, 0.7);
   }
 
   .btn-primary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow:
-      0 22px 46px -18px rgba(233, 30, 77, 0.85),
-      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    background-image: linear-gradient(140deg, #12775a 0%, #0c5b45 100%);
+    box-shadow: 0 12px 26px -12px rgba(12, 91, 69, 0.75);
   }
 
   .btn-secondary {
-    @apply btn text-content-primary;
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid var(--medipal-line);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 10px 26px -20px rgba(76, 16, 40, 0.3);
+    @apply btn border border-line bg-white text-content-primary;
   }
 
   .btn-secondary:hover:not(:disabled) {
-    transform: translateY(-2px);
-    background: rgba(255, 255, 255, 0.95);
-    border-color: rgba(233, 30, 77, 0.45);
-    box-shadow: 0 18px 38px -22px rgba(76, 16, 40, 0.4);
+    border-color: rgba(18, 119, 90, 0.5);
+    background: var(--medipal-brand-tint);
+    color: #0c5b45;
   }
 
   .btn-ghost {
@@ -231,50 +179,53 @@
   }
 
   .btn-ghost:hover:not(:disabled) {
-    color: #c2183a;
-    background: rgba(233, 30, 77, 0.06);
+    color: #0c5b45;
+    background: rgba(18, 119, 90, 0.07);
+  }
+
+  /* Critical / emergency only. */
+  .btn-danger {
+    @apply btn bg-danger text-white;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: #b91c1c;
   }
 
   /* ---------- Form fields ---------- */
   .field-label {
-    @apply mb-2 block text-xs font-medium uppercase tracking-[0.16em] text-content-secondary;
+    @apply mb-1.5 block text-[0.82rem] font-semibold normal-case tracking-normal text-content-primary;
   }
 
   .field {
-    @apply w-full rounded-2xl px-4 py-3 text-sm text-content-primary transition-all duration-300 ease-smooth;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid var(--medipal-line);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    outline: none;
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-content-primary outline-none transition-[border-color,box-shadow] duration-200;
   }
 
   .field::placeholder {
-    color: rgba(104, 104, 115, 0.62);
+    color: rgba(92, 104, 117, 0.7);
   }
 
   .field:hover:not(:disabled) {
-    border-color: rgba(23, 23, 28, 0.22);
+    border-color: #c6cbc7;
   }
 
   .field:focus {
-    border-color: rgba(233, 30, 77, 0.6);
-    background: #ffffff;
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+    border-color: var(--medipal-brand);
+    box-shadow: 0 0 0 3px rgba(18, 119, 90, 0.16);
   }
 
   .field[aria-invalid="true"] {
-    border-color: rgba(233, 30, 77, 0.75);
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.1);
+    border-color: #c2183a;
+    box-shadow: 0 0 0 3px rgba(194, 24, 58, 0.14);
   }
 
   .field-error {
-    @apply mt-1.5 flex items-center gap-1.5 text-xs text-crimson-soft;
+    @apply mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger;
   }
 
   .field option {
     background-color: #ffffff;
-    color: #17171c;
+    color: #1f2933;
   }
 
   /* ---------- Layout helpers ---------- */
@@ -286,19 +237,58 @@
     @apply py-20 sm:py-24 lg:py-28;
   }
 
+  /* ---------- Shared card + status primitives ----------
+     One card shape and one set of status colours, used by every module. */
+  .surface-card {
+    @apply rounded-2xl border border-line bg-white shadow-card;
+  }
+
+  .surface-card-flat {
+    @apply rounded-2xl border border-line bg-white;
+  }
+
+  /* Informational (non-urgent) panel — a very light green wash. */
+  .surface-info {
+    @apply rounded-2xl border border-brand-tint bg-brand-wash;
+  }
+
+  /* Reserved for a genuinely urgent or emergency message. */
+  .surface-alert {
+    @apply rounded-2xl border border-danger/25 bg-[#FEF2F2];
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .badge-ok {
+    @apply badge border-ok/25 bg-ok/10 text-[#0B6B4E];
+  }
+
+  .badge-warn {
+    @apply badge border-warn/25 bg-warn/10 text-[#8A5200];
+  }
+
+  .badge-danger {
+    @apply badge border-danger/25 bg-danger/10 text-[#A81B1B];
+  }
+
+  .badge-neutral {
+    @apply badge border-line bg-canvas-alt text-content-secondary;
+  }
+
   .chip {
-    @apply inline-flex items-center gap-2 rounded-full border border-line bg-white/75 px-3.5 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-secondary backdrop-blur-md;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium text-content-secondary;
   }
 
   .divider-glass {
     height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(23, 23, 28, 0.12) 20%,
-      rgba(23, 23, 28, 0.12) 80%,
-      transparent
-    );
+    background: var(--medipal-line);
+  }
+
+  /* Keyboard users must be able to jump past the header. */
+  .skip-link {
+    @apply absolute left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-transform focus:translate-y-0;
   }
 
   .no-scrollbar {
@@ -328,49 +318,33 @@
 
   /* Selectively glassy — enough depth to feel premium, still readable. */
   .eu-glass {
-    @apply relative rounded-2xl border border-white/70;
-    background: linear-gradient(
-      150deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.72) 52%,
-      rgba(253, 240, 237, 0.78) 100%
-    );
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    box-shadow:
-      0 1px 2px rgba(32, 33, 36, 0.05),
-      0 20px 44px -26px rgba(32, 33, 36, 0.26),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    @apply relative rounded-2xl border border-eu-border bg-white shadow-eu-card;
   }
 
   .eu-btn {
-    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-300 ease-smooth;
+    @apply relative inline-flex select-none items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-200 ease-smooth;
     @apply disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   .eu-btn-primary {
-    @apply eu-btn text-white;
-    background: linear-gradient(140deg, #f04452 0%, #e91e4d 55%, #c2183a 100%);
-    box-shadow:
-      0 12px 26px -14px rgba(233, 30, 77, 0.7),
-      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    @apply eu-btn bg-eu-brand text-white;
+    background-image: linear-gradient(140deg, #1a8f6c 0%, #12775a 55%, #0c5b45 100%);
+    box-shadow: 0 8px 20px -12px rgba(12, 91, 69, 0.7);
   }
 
   .eu-btn-primary:hover:not(:disabled) {
-    transform: translateY(-1.5px);
-    box-shadow:
-      0 18px 34px -14px rgba(194, 24, 58, 0.85),
-      inset 0 1px 0 rgba(255, 255, 255, 0.36);
+    background-image: linear-gradient(140deg, #12775a 0%, #0c5b45 100%);
+    box-shadow: 0 12px 26px -12px rgba(12, 91, 69, 0.75);
   }
 
   .eu-btn-secondary {
-    @apply eu-btn border border-eu-border bg-eu-bg text-eu-text;
+    @apply eu-btn border border-eu-border bg-white text-eu-text;
   }
 
   .eu-btn-secondary:hover:not(:disabled) {
-    transform: translateY(-1.5px);
-    border-color: rgba(233, 30, 77, 0.5);
-    box-shadow: 0 14px 28px -20px rgba(23, 23, 28, 0.34);
+    border-color: rgba(18, 119, 90, 0.5);
+    background: #e6f1ec;
+    color: #0c5b45;
   }
 
   .eu-btn-quiet {
@@ -378,8 +352,8 @@
   }
 
   .eu-btn-quiet:hover:not(:disabled) {
-    background: #f7f7f9;
-    color: #17171c;
+    background: #f5f7f5;
+    color: #0c5b45;
   }
 
   .eu-label {
@@ -395,12 +369,12 @@
   }
 
   .eu-field:hover:not(:disabled) {
-    border-color: #cdc2c7;
+    border-color: #c6cbc7;
   }
 
   .eu-field:focus {
-    border-color: #e91e4d;
-    box-shadow: 0 0 0 4px rgba(233, 30, 77, 0.12);
+    border-color: #12775a;
+    box-shadow: 0 0 0 3px rgba(18, 119, 90, 0.16);
   }
 
   .eu-field[aria-invalid="true"] {
@@ -417,7 +391,7 @@
   }
 
   .eu-eyebrow {
-    @apply text-[0.7rem] font-bold uppercase tracking-[0.22em] text-eu-muted;
+    @apply text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-brand-deep;
   }
 
   .eu-divider {

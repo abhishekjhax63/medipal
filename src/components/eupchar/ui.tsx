@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { EASE_SMOOTH } from "@/lib/animations";
 import { cn } from "@/lib/cn";
 import { formatPaise } from "@/lib/eupchar/format";
-import { E_UPCHAR_COPY, type PriceVerificationStatus } from "@/types/eupchar";
+import { E_UPCHAR_COPY, type PriceVerificationStatus, type ServicePrice } from "@/types/eupchar";
 
 /* ------------------------------------------------------------------ */
 /* Surfaces                                                            */
@@ -263,6 +263,27 @@ export function EuCardSkeletons({ count = 3 }: { count?: number }) {
 /* Price                                                               */
 /* ------------------------------------------------------------------ */
 
+/** Copy + tone for each honest price state (spec §Issue-3D). */
+export function priceStateLabel(status: PriceVerificationStatus): {
+  tone: BadgeTone;
+  label: string;
+} | null {
+  switch (status) {
+    case "verified":
+      return { tone: "ok", label: E_UPCHAR_COPY.priceProviderConfirmed };
+    case "published":
+      return { tone: "neutral", label: E_UPCHAR_COPY.pricePublished };
+    case "practice":
+      return { tone: "practice", label: "Practice amount" };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Renders exactly one of the honest price states. An unknown price is never
+ * rendered as `₹0`, and an unconfirmed figure is never rendered as a price.
+ */
 export function EuPrice({
   paise,
   status = "unverified",
@@ -272,6 +293,35 @@ export function EuPrice({
   status?: PriceVerificationStatus;
   size?: "sm" | "md" | "lg";
 }) {
+  const sizes = {
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-xl",
+  } as const;
+
+  // State (2): free under an applicable programme — never shown as ₹0.
+  if (status === "free_programme") {
+    return (
+      <span className="inline-flex flex-wrap items-baseline gap-2">
+        <span className={cn("font-semibold tracking-[-0.01em] text-eu-text", sizes[size])}>
+          {E_UPCHAR_COPY.priceFreeProgramme}
+        </span>
+        <EuBadge tone="ok">Programme</EuBadge>
+      </span>
+    );
+  }
+
+  // States (3) and (4): a figure must not be shown as a price.
+  if (status === "awaiting_confirmation" || status === "unverified") {
+    return (
+      <span className="text-[0.8rem] font-medium leading-snug text-eu-muted">
+        {status === "awaiting_confirmation"
+          ? E_UPCHAR_COPY.priceNotConfirmed
+          : E_UPCHAR_COPY.priceUnavailable}
+      </span>
+    );
+  }
+
   const formatted = formatPaise(paise);
   if (formatted === null) {
     return (
@@ -280,23 +330,65 @@ export function EuPrice({
       </span>
     );
   }
-  const sizes = {
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-xl",
-  } as const;
+
+  const badge = priceStateLabel(status);
   return (
     <span className="inline-flex flex-wrap items-baseline gap-2">
       <span className={cn("font-semibold tracking-[-0.01em] text-eu-text", sizes[size])}>{formatted}</span>
-      {status === "practice" ? (
-        <EuBadge tone="practice">Practice amount</EuBadge>
-      ) : (
-        <EuBadge tone="ok">
-          <CheckCircle2 className="h-3 w-3" aria-hidden />
-          Verified
+      {badge && (
+        <EuBadge tone={badge.tone}>
+          {badge.tone === "ok" && <CheckCircle2 className="h-3 w-3" aria-hidden />}
+          {badge.label}
         </EuBadge>
       )}
     </span>
+  );
+}
+
+/**
+ * The provenance line that must accompany a real price: who published it, where,
+ * when it was last checked, any published conditions, and a stale warning.
+ */
+export function EuPriceProvenance({
+  price,
+  className,
+}: {
+  price: ServicePrice | null;
+  className?: string;
+}) {
+  if (!price) return null;
+  if (price.verificationStatus === "practice") return null;
+
+  const isFree = price.verificationStatus === "free_programme";
+  if (!isFree && price.verificationStatus !== "verified" && price.verificationStatus !== "published") {
+    return null;
+  }
+
+  return (
+    <div className={cn("mt-2 space-y-1.5 text-[0.75rem] leading-relaxed text-eu-muted", className)}>
+      {price.sourceName && (
+        <p>
+          Source:{" "}
+          {price.sourceUrl ? (
+            <a
+              href={price.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-eu-red-deep underline-offset-2 hover:underline"
+            >
+              {price.sourceName}
+            </a>
+          ) : (
+            <span className="font-medium text-eu-text">{price.sourceName}</span>
+          )}
+          {price.lastVerifiedOn ? ` · checked ${price.lastVerifiedOn}` : ""}
+        </p>
+      )}
+      {price.conditions && <p>{price.conditions}</p>}
+      {price.staleDetectedOn && (
+        <p className="font-medium text-eu-warn">{E_UPCHAR_COPY.priceSourceStale}</p>
+      )}
+    </div>
   );
 }
 

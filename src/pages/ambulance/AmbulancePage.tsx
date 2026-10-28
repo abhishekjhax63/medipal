@@ -81,7 +81,7 @@ export default function AmbulancePage() {
   const hasCoverage = coverage.some((row) => row.providersTotal > 0);
 
   return (
-    <main className="section-shell pt-28 pb-20 sm:pt-32">
+    <main className="section-shell pt-12 pb-20 sm:pt-14">
       {/* Hero */}
       <section className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:items-center">
         <motion.div

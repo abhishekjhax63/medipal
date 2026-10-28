@@ -2,11 +2,18 @@
  * E-UPCHAR API client.
  *
  * Communicates with the MEDIPAL backend to manage hospitals, services,
- * bookings, and patients.
+ * bookings, patients and the verified-price registry.
+ *
+ * The platform-admin key is accepted as an argument and attached per request.
+ * It is never read from the bundle, never written to storage and never logged.
  */
 
 import { API_BASE } from "@/services/eupchar/config";
 import type {
+  AdminAuditEntry,
+  AdminPriceCounts,
+  AdminPriceRecord,
+  AdminSession,
   Booking,
   Hospital,
   HospitalService,
@@ -29,8 +36,16 @@ export class EUpcharApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  extraHeaders: Record<string, string> = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...extraHeaders,
+  };
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const text = await response.text();
   let payload: unknown = null;
@@ -52,6 +67,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   return payload as T;
 }
+
+/** Attaches the operator-supplied platform-admin key to one request. */
+function adminHeaders(adminKey: string): Record<string, string> {
+  return { "x-medipal-admin-key": adminKey };
+}
+
+export type AdminPriceInput = {
+  readonly hospitalId: string;
+  readonly serviceId: string;
+  readonly verificationStatus: string;
+  readonly finalPayablePaise?: number | null;
+  readonly taxesAndFeesPaise?: number | null;
+  readonly sourceName?: string | null;
+  readonly sourceUrl?: string | null;
+  readonly sourceType?: string | null;
+  readonly lastVerifiedOn?: string | null;
+  readonly staleDetectedOn?: string | null;
+  readonly statusNote?: string | null;
+  readonly conditions?: string | null;
+};
 
 export const eupcharApi = {
   hospitals: (params: URLSearchParams) =>
@@ -77,4 +112,47 @@ export const eupcharApi = {
 
   createPatient: (body: any) =>
     request<Patient>(`/api/e-upchar/patients`, { method: "POST", body: JSON.stringify(body) }),
+
+  /* ---------------------------------------------------------------- */
+  /* Administration (Issue 3F). Every call needs the platform key and  */
+  /* is authorised and audited server-side.                            */
+  /* ---------------------------------------------------------------- */
+
+  /** Safe to call without a key: reports whether the console is configured. */
+  adminSession: () => request<AdminSession>(`/api/e-upchar/admin/session`),
+
+  listAdminPrices: (adminKey: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request<{ prices: AdminPriceRecord[]; counts: AdminPriceCounts; filters: unknown }>(
+      `/api/e-upchar/admin/prices${suffix}`,
+      {},
+      adminHeaders(adminKey),
+    );
+  },
+
+  listAdminAudit: (adminKey: string) =>
+    request<{ entries: AdminAuditEntry[] }>(`/api/e-upchar/admin/audit`, {}, adminHeaders(adminKey)),
+
+  saveAdminPrice: (adminKey: string, input: AdminPriceInput) =>
+    request<{ price: AdminPriceRecord }>(
+      `/api/e-upchar/admin/service-prices`,
+      { method: "POST", body: JSON.stringify(input) },
+      adminHeaders(adminKey),
+    ),
+
+  markAdminPriceStale: (adminKey: string, body: { hospitalId: string; serviceId: string; staleDetectedOn?: string; statusNote?: string }) =>
+    request<{ price: AdminPriceRecord }>(
+      `/api/e-upchar/admin/service-prices/stale`,
+      { method: "POST", body: JSON.stringify(body) },
+      adminHeaders(adminKey),
+    ),
+
+  removeAdminPrice: (adminKey: string, body: { hospitalId: string; serviceId: string; reason?: string }) =>
+    request<{ removed: boolean; hospitalId: string; serviceId: string }>(
+      `/api/e-upchar/admin/service-prices/remove`,
+      { method: "POST", body: JSON.stringify(body) },
+      adminHeaders(adminKey),
+    ),
 };

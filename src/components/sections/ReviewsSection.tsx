@@ -64,7 +64,7 @@ export function ReviewsSection() {
   };
 
   return (
-    <section aria-labelledby="reviews-heading" className="section-pad relative pt-32 sm:pt-40">
+    <section aria-labelledby="reviews-heading" className="section-pad relative pt-12 sm:pt-16">
       <div className="section-shell relative">
         <SectionHeading
           id="reviews-heading"

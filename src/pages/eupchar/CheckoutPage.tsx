@@ -17,6 +17,7 @@ import {
   EuEmptyState,
   EuNotice,
   EuPrice,
+  EuPriceProvenance,
   EuSectionTitle,
   EuStepper,
 } from "@/components/eupchar/ui";
@@ -119,8 +120,9 @@ export default function CheckoutPage() {
   const paymentsLive = integrationReadiness.payments === "live";
 
   async function finalisePayment(booking: Booking) {
-    if (payable === null) {
-      // Nothing verifiable to charge — the booking stays a request.
+    if (payable === null || payable <= 0) {
+      // Nothing chargeable — either no verified amount, or the service is free
+      // under an applicable programme. The booking stays a request either way.
       issueInvoice(booking.id, null);
       setBookingStatus(
         booking.id,
@@ -431,7 +433,11 @@ export default function CheckoutPage() {
                   ) : (
                     <CheckCircle2 className="h-4 w-4" aria-hidden />
                   )}
-                  {payable !== null ? `Confirm and pay ${formatPaise(payable)}` : "Confirm booking request"}
+                  {payable !== null && payable > 0
+                    ? `Confirm and pay ${formatPaise(payable)}`
+                    : breakdown.status === "free_programme"
+                      ? "Confirm booking request (free)"
+                      : "Confirm booking request"}
                 </button>
               </div>
             </EuCard>
@@ -476,7 +482,17 @@ export default function CheckoutPage() {
               {statusCopy.detail}
             </EuNotice>
 
-            {!paymentsLive && payable !== null && (
+            <EuPriceProvenance price={view.price} className="mt-3" />
+
+            <p className="mt-2 text-[0.75rem] leading-relaxed text-eu-muted">
+              This booking is for <span className="font-medium text-eu-text">{view.service.name}</span> at{" "}
+              <span className="font-medium text-eu-text">{hospital.name}</span>. The amount above is the
+              total MEDIPAL will charge online. Any additional charge the hospital raises directly is
+              not included, and MEDIPAL never charges an amount that has not been recorded against this
+              provider.
+            </p>
+
+            {!paymentsLive && payable !== null && payable > 0 && (
               <EuNotice tone="practice" title="Sandbox checkout" className="mt-3">
                 Live payments are not configured. Continuing records a clearly-labelled sandbox result
                 — no money moves and no card is charged.

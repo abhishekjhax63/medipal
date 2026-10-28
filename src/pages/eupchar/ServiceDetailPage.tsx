@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { EuPageHeader, EuShell } from "@/components/eupchar/EuShell";
-import { EuCard, EuEmptyState, EuNotice, EuPrice } from "@/components/eupchar/ui";
+import { EuCard, EuEmptyState, EuNotice, EuPrice, EuPriceProvenance } from "@/components/eupchar/ui";
 import { PatientPicker, PatientRow } from "@/components/eupchar/PatientPicker";
 import { PracticeModeExplainer } from "@/components/eupchar/PracticeModeToggle";
 import { testsIncludedCount } from "@/data/eupchar/serviceCatalog";
@@ -149,15 +149,17 @@ export default function ServiceDetailPage() {
             <div className="mt-2">
               <EuPrice paise={view.displayPricePaise} status={view.priceStatus} size="lg" />
             </div>
-            {view.price?.lastVerifiedOn && (
-              <p className="mt-2 text-[0.75rem] text-eu-muted">
-                Last verified on {view.price.lastVerifiedOn}
-              </p>
-            )}
+            <EuPriceProvenance price={view.price} />
             {view.priceStatus === "unverified" && (
               <p className="mt-2 text-[0.78rem] leading-relaxed text-eu-muted">
-                No verified price exists for this service here, so payment cannot be started. Contact
-                the hospital for the current amount.
+                No verified or published price exists for this service here, so payment cannot be
+                started. Contact the hospital for the current amount.
+              </p>
+            )}
+            {view.priceStatus === "awaiting_confirmation" && (
+              <p className="mt-2 text-[0.78rem] leading-relaxed text-eu-muted">
+                A price has been recorded but the provider has not confirmed it, so it cannot be
+                charged online. Contact the hospital to confirm the current amount.
               </p>
             )}
 

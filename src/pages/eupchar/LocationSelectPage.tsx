@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { EuPageHeader, EuShell } from "@/components/eupchar/EuShell";
 import { EuCard, EuNotice, EuSectionTitle } from "@/components/eupchar/ui";
+import { LiveLocationPanel } from "@/components/eupchar/LiveLocationPanel";
 import {
   biharDistrictReference,
   hospitalDatasetMeta,
@@ -18,7 +19,11 @@ import { E_UPCHAR_COPY, type Hospital } from "@/types/eupchar";
  *
  * State → District → Hospital, in the supplied dataset's own hierarchy. Save is
  * disabled until a valid district is chosen. The choice is persisted so later
- * screens open on the right hospital. Geolocation is never requested here.
+ * screens open on the right hospital.
+ *
+ * An optional "use my current location" panel can pre-select a district and
+ * list real nearby facilities, but the position is requested only on the
+ * visitor's explicit action and manual selection always remains available.
  */
 export default function LocationSelectPage() {
   const state = useEuState();
@@ -74,6 +79,13 @@ export default function LocationSelectPage() {
       savedAt: new Date().toISOString(),
     });
     navigate(selectedHospital ? `/e-upchar/hospitals/${selectedHospital.id}` : "/e-upchar/hospitals");
+  }
+
+  function handleDetectedDistrict(nextDistrict: string) {
+    setStateName(hospitalDatasetMeta.state);
+    setDistrict(nextDistrict);
+    setHospitalId("");
+    setQuery("");
   }
 
   return (
@@ -140,6 +152,8 @@ export default function LocationSelectPage() {
           ))}
         </EuCard>
       )}
+
+      <LiveLocationPanel onDistrictDetected={handleDetectedDistrict} className="mt-8" />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <section>
@@ -265,7 +279,8 @@ export default function LocationSelectPage() {
       </EuCard>
 
       <p className="mt-4 text-[0.75rem] text-eu-muted">
-        E-UPCHAR never asks for your device location. Nothing is detected automatically; you always
+        E-UPCHAR only asks for your device location if you press “Use my current location”, and only
+        to show real nearby facilities. Nothing is detected when this page opens; you can always
         choose the place yourself.
       </p>
     </EuShell>

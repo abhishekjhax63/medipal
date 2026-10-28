@@ -3,13 +3,15 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { AmbientBackdrop } from "@/components/layout/AmbientBackdrop";
 import { Footer } from "@/components/layout/Footer";
-import { GlassNavbar } from "@/components/layout/GlassNavbar";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { EuFooter } from "@/components/eupchar/EuFooter";
 import { EupcharBookingProvider } from "@/context/EupcharBookingContext";
 import { UIProvider, useUI } from "@/context/UIContext";
 import { useScrollBehaviour } from "@/hooks/useScrollBehaviour";
 import AboutPage from "@/pages/AboutPage";
 import AIDoctorPage from "@/pages/AIDoctorPage";
+import HomePage from "@/pages/HomePage";
+import { EmergencyInfoPage, PrivacyPolicyPage, TermsPage } from "@/pages/StaticPages";
 import BloodBankPage from "@/pages/BloodBankPage";
 import BloodBridgeLivePage from "@/pages/blood-bank/BloodBridgeLivePage";
 import AdminConsolePage from "@/pages/blood-bank/AdminConsolePage";
@@ -58,25 +60,38 @@ function AppShell() {
     <EupcharBookingProvider>
       <div className="relative flex min-h-screen flex-col">
         <AmbientBackdrop variant={isEUpchar ? "eupchar" : isAiDoctor ? "ai" : isAmbulance ? "ambulance" : "blood"} />
-        <GlassNavbar />
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <SiteHeader />
 
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
-            className="flex flex-1 flex-col"
+            id="main-content"
+            tabIndex={-1}
+            className="flex flex-1 flex-col outline-none"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
             <Routes location={location}>
-              {/* Blood Bank remains the default experience. */}
-              <Route path="/" element={<BloodBankPage />} />
+              {/* Public home — the entry point into the four MEDIPAL services. */}
+              <Route path="/" element={<HomePage />} />
+
+              {/* Blood Bank — the search-first experience. */}
+              <Route path="/blood-bank" element={<BloodBankPage />} />
               <Route path="/blood-bank/live" element={<BloodBridgeLivePage />} />
               <Route path="/ai-doctor" element={<AIDoctorPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/contact" element={<ContactPage />} />
+
+              {/* Plain-language information pages linked from the footer. */}
+              <Route path="/emergency" element={<EmergencyInfoPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
 
               {/* Blood Bank operator consoles — facility stock management and platform administration. */}
               <Route path="/blood-bank/facility" element={<FacilityConsolePage />} />
@@ -105,7 +120,7 @@ function AppShell() {
               <Route path="/ambulance/track" element={<AmbulanceTrackPage />} />
               <Route path="/ambulance/track/:bookingId" element={<AmbulanceTrackPage />} />
 
-              <Route path="*" element={<BloodBankPage />} />
+              <Route path="*" element={<HomePage />} />
             </Routes>
           </motion.div>
         </AnimatePresence>

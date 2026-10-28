@@ -36,6 +36,7 @@ export const practicePriceSource: PriceSource = {
   url: null,
   type: "hospital",
   permitted: true,
+  checkedOn: null,
 };
 
 /** Stable 32-bit hash so practice data is identical on every reload. */
@@ -107,7 +108,10 @@ export function buildPracticeServicePrices(
         officialOnlinePricePaise: null,
         thirdPartyOnlinePricePaise: null,
         sourceId: practicePriceSource.id,
+        sourceName: practicePriceSource.name,
+        sourceUrl: null,
         lastVerifiedOn: null,
+        staleDetectedOn: null,
         conditions: "Practice placeholder — no hospital has confirmed this amount.",
         taxesAndFeesPaise: taxes,
         finalPayablePaise: hospitalPrice + taxes,

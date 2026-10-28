@@ -115,18 +115,24 @@ export function buildHospitalServiceView(
   };
 }
 
+/**
+ * Only a chargeable state (verified/published), an applicable free programme, or
+ * an explicitly-labelled practice record may surface a number. A price that is
+ * merely awaiting confirmation, or has no reliable source, always yields `null`
+ * so the UI shows "Price not confirmed — contact the provider." / "Price
+ * unavailable — contact the hospital." rather than `₹0`.
+ */
 const PAYABLE_STATUSES: ReadonlySet<ServicePrice["verificationStatus"]> = new Set([
   "verified",
+  "published",
+  "free_programme",
   "practice",
 ]);
 
-/**
- * Only a verified (or explicitly-labelled practice) record may surface a number.
- * An unverified record always yields `null` so the UI shows
- * "Price unavailable — contact the hospital."
- */
 export function resolveDisplayPricePaise(price: ServicePrice | null): number | null {
   if (!price || !PAYABLE_STATUSES.has(price.verificationStatus)) return null;
+  /** A covered programme costs the patient nothing — `0` here, never "unknown". */
+  if (price.verificationStatus === "free_programme") return 0;
   if (price.finalPayablePaise !== null) return price.finalPayablePaise;
   if (price.hospitalPricePaise === null) return null;
   return price.hospitalPricePaise + (price.taxesAndFeesPaise ?? 0);

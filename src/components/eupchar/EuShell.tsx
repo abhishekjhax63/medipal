@@ -20,7 +20,7 @@ export function EuShell({
 }) {
   return (
     <div className={cn("eu-scope relative flex-1 bg-eu-bg", className)}>
-      <div className={cn("mx-auto w-full px-4 pb-20 pt-24 sm:px-6 sm:pt-28 lg:px-8", wide ? "max-w-7xl" : "max-w-6xl")}>
+      <div className={cn("mx-auto w-full px-4 pb-20 pt-10 sm:px-6 sm:pt-12 lg:px-8", wide ? "max-w-7xl" : "max-w-6xl")}>
         {children}
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { BloodBankExperience } from "@/components/blood-bank/BloodBankExperience";
 
-/** Default route ("/") — the Blood Bank experience a visitor sees first. */
+/** Blood Bank route ("/blood-bank"). The location search is its first section. */
 export default function BloodBankPage() {
   return <BloodBankExperience />;
 }

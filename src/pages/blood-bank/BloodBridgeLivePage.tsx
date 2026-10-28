@@ -34,7 +34,7 @@ export default function BloodBridgeLivePage() {
   const [activeTab, setActiveTab] = useState<Tab>("find");
 
   return (
-    <main className="relative min-h-screen pt-24 pb-20">
+    <main className="relative min-h-screen pt-12 pb-20">
       {/* Patna Context Header */}
       <div className="section-shell mb-8">
         <Reveal>

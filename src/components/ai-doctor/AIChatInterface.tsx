@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { CircleAlert, CornerDownLeft, Image as ImageIcon, LoaderCircle, RotateCcw, Send, ShieldAlert, Sparkles, Trash, Video as VideoIcon, X } from "lucide-react";
+import { CircleAlert, CornerDownLeft, Image as ImageIcon, LoaderCircle, RotateCcw, Send, ShieldAlert, Sparkles, Trash, X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MessageBubble } from "@/components/ai-doctor/MessageBubble";
 import { followUpsFor } from "@/components/ai-doctor/prompts";
@@ -31,11 +31,8 @@ export type AIChatInterfaceProps = {
 const MAX_TEXTAREA_HEIGHT = 168;
 const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
-const MAX_VIDEO_SECONDS = 90;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-bright focus-visible:ring-offset-2";
 
 function TypingIndicator() {
@@ -57,17 +54,6 @@ function readFileAsDataUrl(file: File, onProgress: (percent: number) => void): P
     reader.onprogress = (event) => { if (event.lengthComputable) onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100))); };
     reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error(`Could not read ${file.name}.`));
     reader.readAsDataURL(file);
-  });
-}
-
-function getVideoDuration(file: File): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    const url = URL.createObjectURL(file);
-    video.preload = "metadata";
-    video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration); };
-    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error("The video duration could not be read.")); };
-    video.src = url;
   });
 }
 
@@ -111,30 +97,18 @@ export function AIChatInterface({ variant, pendingPrompt, onPromptConsumed, onCo
     commit(next); setInput(""); setAttachments((current) => { clearAttachmentUrls(current); return []; }); setUploadError(null); void startRequest(next);
   }, [attachments, clearAttachmentUrls, commit, input, phase, startRequest]);
 
-  const handleFiles = useCallback(async (event: ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
+  const handleFiles = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []); event.target.value = ""; if (!files.length) return;
-    if ((kind === "image" && !mediaCapabilities?.images) || (kind === "video" && !mediaCapabilities?.videoFrames)) {
-      setUploadError(
-        kind === "image"
-          ? "Image analysis is not enabled for this MEDIPAL deployment."
-          : "Video frame analysis is not enabled for this MEDIPAL deployment.",
-      );
-      return;
-    }
+    if (!mediaCapabilities?.images) { setUploadError("Image analysis is not enabled for this MEDIPAL deployment."); return; }
     setUploadError(null);
     for (const file of files) {
-      const types = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;
-      const byteLimit = kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
-      if (!types.has(file.type)) { setUploadError(`${file.name} is not a supported ${kind}. Use ${kind === "image" ? "JPG, PNG or WEBP" : "MP4, WEBM or MOV"}.`); continue; }
-      if (file.size > byteLimit) { setUploadError(`${file.name} is larger than the ${kind === "image" ? "5 MB" : "20 MB"} limit.`); continue; }
+      if (!IMAGE_TYPES.has(file.type)) { setUploadError(`${file.name} is not a supported image. Use JPG, PNG or WEBP.`); continue; }
+      if (file.size > MAX_IMAGE_BYTES) { setUploadError(`${file.name} is larger than the 5 MB limit.`); continue; }
       if (attachments.reduce((total, item) => total + item.sizeBytes, 0) + file.size > MAX_TOTAL_BYTES) { setUploadError("Attachments together must be 20 MB or smaller."); break; }
-      if (kind === "image" && attachments.filter((item) => item.kind === "image").length >= MAX_IMAGES) { setUploadError(`You can attach up to ${MAX_IMAGES} images in one message.`); break; }
-      if (kind === "video" && attachments.some((item) => item.kind === "video")) { setUploadError("Attach one video at a time so it can be analysed safely."); break; }
-      let durationSeconds: number | undefined;
+      if (attachments.filter((item) => item.kind === "image").length >= MAX_IMAGES) { setUploadError(`You can attach up to ${MAX_IMAGES} images in one message.`); break; }
       try {
-        if (kind === "video") { durationSeconds = await getVideoDuration(file); if (!Number.isFinite(durationSeconds) || durationSeconds > MAX_VIDEO_SECONDS) throw new Error(`Videos must be ${MAX_VIDEO_SECONDS} seconds or shorter.`); }
         const id = createMessageId();
-        const draft: DraftAttachment = { id, name: file.name, mimeType: file.type, sizeBytes: file.size, kind, dataUrl: "", durationSeconds, progress: 1, previewUrl: URL.createObjectURL(file) };
+        const draft: DraftAttachment = { id, name: file.name, mimeType: file.type, sizeBytes: file.size, kind: "image", dataUrl: "", progress: 1, previewUrl: URL.createObjectURL(file) };
         setAttachments((current) => [...current, draft]);
         const dataUrl = await readFileAsDataUrl(file, (progress) => setAttachments((current) => current.map((item) => item.id === id ? { ...item, progress } : item)));
         setAttachments((current) => current.map((item) => item.id === id ? { ...item, dataUrl, progress: 100 } : item));
@@ -177,21 +151,18 @@ export function AIChatInterface({ variant, pendingPrompt, onPromptConsumed, onCo
   const canSend = (input.trim().length > 0 || attachments.length > 0) && attachments.every((item) => item.progress === 100) && phase !== "loading";
   const statusLabel = status.endpointConfigured ? "AI analysis — availability checked when you send" : "AI analysis is not configured";
   const imagesEnabled = mediaCapabilities?.images === true;
-  const videoEnabled = mediaCapabilities?.videoFrames === true;
   const mediaHint = !mediaCapabilities
-    ? "Checking whether this deployment can analyse attachments…"
+    ? "Checking whether this deployment can analyse photos…"
     : capabilityError
       ? `${capabilityError} Text questions may still be available.`
-      : imagesEnabled && videoEnabled
-        ? "Images: JPG, PNG, WEBP up to 5 MB each. One MP4, WEBM or MOV up to 20 MB / 90 sec. Attachments together: 20 MB max. Video analysis is based on selected frames."
-        : imagesEnabled
-          ? "Images: JPG, PNG or WEBP up to 5 MB each. Video analysis is not enabled for this deployment."
-          : "Image and video analysis are not enabled for this deployment. You can still ask a text question.";
+      : imagesEnabled
+        ? `Photos: JPG, PNG or WEBP up to 5 MB each, ${MAX_IMAGES} per message. A photo is analysed for this conversation only and is not stored.`
+        : "Photo analysis is not enabled for this deployment. You can still ask a text question.";
 
   const composer = <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); handleSend(); }}>
-    {attachments.length > 0 && <div className="flex flex-wrap gap-2 px-1">{attachments.map((file) => <div key={file.id} className="flex max-w-full items-center gap-2 rounded-xl border border-line bg-white/80 px-2 py-1.5 text-[0.7rem] text-content-secondary">{file.kind === "image" ? <ImageIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <VideoIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />}<span className="max-w-[165px] truncate font-medium">{file.name}{file.durationSeconds ? ` · ${Math.ceil(file.durationSeconds)} sec` : ""}</span>{file.progress < 100 && <span className="text-crimson">{file.progress}%</span>}<button type="button" onClick={() => removeAttachment(file.id)} aria-label={`Remove ${file.name}`} className="rounded-full p-0.5 hover:bg-crimson/10 hover:text-crimson"><X className="h-3 w-3" aria-hidden /></button></div>)}</div>}
+    {attachments.length > 0 && <div className="flex flex-wrap gap-2 px-1">{attachments.map((file) => <div key={file.id} className="flex max-w-full items-center gap-2 rounded-xl border border-line bg-white/80 px-2 py-1.5 text-[0.7rem] text-content-secondary"><ImageIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /><span className="max-w-[165px] truncate font-medium">{file.name}</span>{file.progress < 100 && <span className="text-crimson">{file.progress}%</span>}<button type="button" onClick={() => removeAttachment(file.id)} aria-label={`Remove ${file.name}`} className="rounded-full p-0.5 hover:bg-crimson/10 hover:text-crimson"><X className="h-3 w-3" aria-hidden /></button></div>)}</div>}
     {uploadError && <p className="flex items-start gap-1.5 px-1 text-xs text-danger"><CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{uploadError}</p>}
-    <div className="flex items-end gap-2"><div className="flex-1"><label htmlFor={composerId} className="sr-only">Ask MEDIPAL about your health</label><div className="relative"><textarea id={composerId} ref={textareaRef} value={input} rows={1} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about a report, prescription, image or video…" className="w-full resize-none rounded-2xl border border-line bg-white/85 px-4 py-3 pr-20 text-sm leading-relaxed text-content-primary placeholder:text-content-secondary/60 outline-none transition focus:border-crimson/50 focus:bg-white focus:shadow-[0_0_0_4px_rgba(233,30,77,0.14)]" /><div className="absolute bottom-2 right-2 flex items-center gap-1">{imagesEnabled ? <label title="Attach JPG, PNG or WEBP" className="cursor-pointer rounded-full p-1.5 text-content-secondary transition hover:bg-blush/70 hover:text-crimson-soft"><ImageIcon className="h-4 w-4" aria-hidden /><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(event) => void handleFiles(event, "image")} /></label> : <span title="Image analysis is not enabled" aria-label="Image analysis is not enabled" className="cursor-not-allowed rounded-full p-1.5 text-content-secondary/35"><ImageIcon className="h-4 w-4" aria-hidden /></span>}{videoEnabled ? <label title="Attach MP4, WEBM or MOV (90 seconds max)" className="cursor-pointer rounded-full p-1.5 text-content-secondary transition hover:bg-blush/70 hover:text-crimson-soft"><VideoIcon className="h-4 w-4" aria-hidden /><input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={(event) => void handleFiles(event, "video")} /></label> : <span title="Video analysis is not enabled" aria-label="Video analysis is not enabled" className="cursor-not-allowed rounded-full p-1.5 text-content-secondary/35"><VideoIcon className="h-4 w-4" aria-hidden /></span>}</div></div></div><button type="submit" disabled={!canSend} className={`btn-primary mb-0.5 shrink-0 px-4 py-3 sm:px-5 ${FOCUS_RING}`} aria-label="Send message">{phase === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}<span className="hidden sm:inline">Send</span></button></div>
+    <div className="flex items-end gap-2"><div className="flex-1"><label htmlFor={composerId} className="sr-only">Ask MEDIPAL about your health</label><div className="relative"><textarea id={composerId} ref={textareaRef} value={input} rows={1} onChange={(event) => setInput(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about a report, prescription or photo…" className="w-full resize-none rounded-2xl border border-line bg-white/85 px-4 py-3 pr-12 text-sm leading-relaxed text-content-primary placeholder:text-content-secondary/60 outline-none transition focus:border-crimson/50 focus:bg-white focus:shadow-[0_0_0_4px_rgba(233,30,77,0.14)]" /><div className="absolute bottom-2 right-2 flex items-center gap-1">{imagesEnabled ? <label title="Attach a photo (JPG, PNG or WEBP)" className="cursor-pointer rounded-full p-1.5 text-content-secondary transition hover:bg-blush/70 hover:text-crimson-soft"><ImageIcon className="h-4 w-4" aria-hidden /><input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(event) => void handleFiles(event)} /></label> : <span title="Photo analysis is not enabled" aria-label="Photo analysis is not enabled" className="cursor-not-allowed rounded-full p-1.5 text-content-secondary/35"><ImageIcon className="h-4 w-4" aria-hidden /></span>}</div></div></div><button type="submit" disabled={!canSend} className={`btn-primary mb-0.5 shrink-0 px-4 py-3 sm:px-5 ${FOCUS_RING}`} aria-label="Send message">{phase === "loading" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}<span className="hidden sm:inline">Send</span></button></div>
     <p className="px-1 text-[0.68rem] leading-relaxed text-content-secondary/80">{mediaHint}</p>
   </form>;
   const errorBanner = phase === "error" && errorText ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-crimson/25 bg-[linear-gradient(120deg,rgba(255,49,87,0.08),rgba(225,29,72,0.12))] px-3.5 py-2.5"><p className="flex items-center gap-2 text-xs leading-relaxed text-content-secondary"><CircleAlert className="h-3.5 w-3.5 shrink-0 text-crimson" aria-hidden />{errorText}</p><button type="button" onClick={handleRetry} className={`inline-flex items-center gap-1.5 rounded-full border border-crimson/30 bg-white/80 px-3 py-1.5 text-xs font-medium text-content-primary ${FOCUS_RING}`}><RotateCcw className="h-3.5 w-3.5" aria-hidden />Try again</button></div> : null;
