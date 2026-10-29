@@ -96,10 +96,31 @@ export function AIChatInterface({ variant, pendingPrompt, onPromptConsumed, onCo
     abortRef.current = controller;
     setPhase("loading"); setErrorText(null);
     try {
-      const result = await sendChatMessage(history.map((entry) => entry.message), controller.signal);
-      if (!controller.signal.aborted) { commit([...history, { message: result.message, demo: false, intent: result.intent }]); setPhase("idle"); }
+      await sendChatMessage(
+        history.map((entry) => entry.message),
+        (result) => {
+          if (!controller.signal.aborted) {
+            // Update the last message if it's from the assistant, otherwise add a new one
+            const current = entriesRef.current;
+            const last = current[current.length - 1];
+            if (last && last.message.role === "assistant") {
+              const updated = [...current.slice(0, -1), { ...last, message: result.message }];
+              commit(updated);
+            } else {
+              commit([...current, { ...result, message: result.message }]);
+            }
+          }
+        },
+        controller.signal
+      );
+      if (!controller.signal.aborted) {
+        setPhase("idle");
+      }
     } catch (error) {
-      if (!controller.signal.aborted) { setPhase("error"); setErrorText(error instanceof Error ? error.message : "The AI service could not be reached."); }
+      if (!controller.signal.aborted) {
+        setPhase("error");
+        setErrorText(error instanceof Error ? error.message : "The AI service could not be reached.");
+      }
     }
   }, [commit]);
 

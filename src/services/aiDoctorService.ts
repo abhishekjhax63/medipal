@@ -6,7 +6,7 @@ import type {
   ChatRole,
 } from "@/types/aiDoctor";
 
-const REQUEST_TIMEOUT_MS = 65_000;
+const REQUEST_TIMEOUT_MS = 125_000;
 
 /** Public, secret-free server feature flags for the attachment controls. */
 export type AIMediaCapabilities = {
@@ -91,19 +91,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function extractContent(data: unknown): string | undefined {
-  if (!isRecord(data)) return undefined;
-  return typeof data.reply === "string" && data.reply.trim() ? data.reply.trim() : undefined;
-}
-
 /**
  * Calls the MEDIPAL server only. Unlike the prior preview implementation, a
  * failed provider call is an error, never a locally generated medical answer.
  */
 export async function sendChatMessage(
   messages: ChatMessage[],
+  onUpdate: (result: ChatResult) => void,
   signal?: AbortSignal,
-): Promise<ChatResult> {
+): Promise<void> {
   const endpoint = readEndpoint();
   if (!endpoint) throw new Error("AI analysis has not been configured for this deployment.");
 
@@ -111,13 +107,11 @@ export async function sendChatMessage(
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({
         messages: messages.slice(-20).map(({ role, content, attachments }, index, recent) => ({
           role,
           content,
-          // Previous media has already been analysed. Retaining it in the UI is
-          // useful, but re-uploading it with every future turn is not.
           attachments: index === recent.length - 1 ? attachments?.map((attachment) => ({
             name: attachment.name,
             mimeType: attachment.mimeType,
@@ -130,15 +124,55 @@ export async function sendChatMessage(
       }),
       signal: controller.signal,
     });
-    const payload: unknown = await response.json().catch(() => null);
+
     if (!response.ok) {
+      const payload: unknown = await response.json().catch(() => null);
       const detail =
         isRecord(payload) && typeof payload.error === "string" ? payload.error : "AI analysis failed.";
       throw new Error(detail);
     }
-    const content = extractContent(payload);
-    if (!content) throw new Error("The AI provider returned an empty response.");
-    return { message: createChatMessage("assistant", content), mode: "live", demo: false };
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    if (!reader) throw new Error("Failed to read the response stream.");
+
+    /**
+     * One assistant message carries the whole streamed answer. Reusing it keeps
+     * the message id stable, so React updates the text in place instead of
+     * remounting the bubble — and replaying its entry animation — per token.
+     */
+    let reply: ChatMessage | null = null;
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        // `:` frames are SSE comments — MEDIPAL's own progress heartbeat.
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+        const raw = trimmed.slice(5).trim();
+        try {
+          const data: unknown = JSON.parse(raw);
+          if (!isRecord(data)) continue;
+          if (typeof data.error === "string") throw new Error(data.error);
+          if (typeof data.reply !== "string") continue;
+          const content = data.reply;
+          const next: ChatMessage = reply
+            ? { id: reply.id, role: "assistant", content, createdAt: reply.createdAt }
+            : createChatMessage("assistant", content);
+          reply = next;
+          onUpdate({ message: next, mode: "live", demo: false });
+        } catch (e) {
+          if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
+        }
+      }
+    }
   } catch (error) {
     if (controller.signal.aborted && !signal?.aborted) {
       throw new Error("AI analysis timed out. Please try again.");

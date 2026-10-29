@@ -28,7 +28,17 @@ export const aiCapabilities = Object.freeze({
   videoFrames: aiConfigured && config.ai.supportsImages && config.ai.supportsVideoFrames,
 });
 
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 120_000;
+/**
+ * Transient upstream statuses. The gateway MEDIPAL talks to answers a burst of
+ * questions with `429` and reports an exhausted worker with `502/503`, so the
+ * attempt must be repeated instead of surfaced — but the total wait is bounded
+ * by `REQUEST_TIMEOUT_MS` and by the provider's own `Retry-After`.
+ */
+const MAX_PROVIDER_ATTEMPTS = 3;
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
+const RETRY_BACKOFF_MS = [1_500, 5_000];
+const MAX_RETRY_WAIT_MS = 15_000;
 const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
@@ -194,23 +204,211 @@ async function normaliseMessages(input) {
 }
 
 function extractReply(payload) {
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content.trim();
+  const message = payload?.choices?.[0]?.message;
+  const content = message?.content;
+  const reasoning = message?.reasoning_content;
+
+  if (typeof content === "string" && content.trim()) return content.trim();
   if (Array.isArray(content)) return content.map((part) => typeof part?.text === "string" ? part.text : "").join("\n").trim();
+  
+  // Fallback to reasoning if content is empty (common for some reasoning models)
+  if (typeof reasoning === "string" && reasoning.trim()) return reasoning.trim();
+  
   return typeof payload?.reply === "string" ? payload.reply.trim() : "";
 }
 
-export async function requestChat(rawMessages) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * A provider that asks for a specific wait means it, so its `Retry-After` is
+ * preferred over MEDIPAL's own backoff — retrying a rate limit too soon is what
+ * turns a short burst limit into a hard failure.
+ */
+function retryAfterMs(header) {
+  const seconds = Number.parseInt(header || "", 10);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1_000, MAX_RETRY_WAIT_MS) : null;
+}
+
+/** Honest, non-technical wording for a provider rejection, split by cause. */
+function providerRejectionMessage(status) {
+  if (status === 400 || status === 413 || status === 422) {
+    return "MEDIPAL AI could not process this request. Try rephrasing the question or starting a new conversation.";
+  }
+  if (status === 401 || status === 403) {
+    return "MEDIPAL AI is not authorised on this server. Please contact the MEDIPAL administrator.";
+  }
+  if (status === 404) {
+    return "The AI model configured on this server is not available. Please contact the MEDIPAL administrator.";
+  }
+  return "MEDIPAL AI could not answer right now. Please try again in a moment.";
+}
+
+/**
+ * Opens the streaming completion request, retrying only while nothing has been
+ * read from the body yet — a retry after a partial stream would repeat text the
+ * user has already seen. Every attempt shares one deadline, so the whole
+ * request can never outlive `REQUEST_TIMEOUT_MS`.
+ */
+async function openCompletionStream(payload, deadlineAt) {
+  let lastStatus = 0;
+  let lastNetworkError = null;
+
+  for (let attempt = 1; attempt <= MAX_PROVIDER_ATTEMPTS; attempt += 1) {
+    const remaining = deadlineAt - Date.now();
+    if (remaining <= 0) break;
+    const isLastAttempt = attempt === MAX_PROVIDER_ATTEMPTS;
+    const backoff = RETRY_BACKOFF_MS[attempt - 1] ?? MAX_RETRY_WAIT_MS;
+
+    try {
+      const response = await fetch(`${config.ai.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.ai.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(remaining),
+      });
+
+      if (!TRANSIENT_STATUSES.has(response.status)) return response;
+
+      lastStatus = response.status;
+      const wait = retryAfterMs(response.headers.get("retry-after")) ?? backoff;
+      // Release the socket before waiting; the body of a rejected request is
+      // never useful and an unread one holds the connection open.
+      try { await response.body?.cancel?.(); } catch { /* nothing to release */ }
+      if (isLastAttempt || Date.now() + wait >= deadlineAt) break;
+      console.warn(`[medipal] AI provider returned ${lastStatus}. Retrying in ${wait}ms (attempt ${attempt}/${MAX_PROVIDER_ATTEMPTS})...`);
+      await sleep(wait);
+    } catch (cause) {
+      lastNetworkError = cause;
+      // A provider that timed out on our own deadline has no time left to retry.
+      if (cause?.name === "TimeoutError" || isLastAttempt || Date.now() + backoff >= deadlineAt) break;
+      console.warn(`[medipal] AI provider network error: ${cause?.message}. Retrying in ${backoff}ms...`);
+      await sleep(backoff);
+    }
+  }
+
+  if (lastStatus) {
+    console.error(`[medipal] AI provider remained unavailable with status ${lastStatus} after ${MAX_PROVIDER_ATTEMPTS} attempts.`);
+    if (lastStatus === 429) {
+      throw new HttpError(429, "MEDIPAL AI is handling too many questions right now. Please wait about a minute and ask again.", "AI_BUSY");
+    }
+    throw new HttpError(503, "MEDIPAL AI is temporarily unavailable. Please try again in a moment.", "AI_PROVIDER_UNAVAILABLE");
+  }
+
+  console.error(`[medipal] AI provider failure: ${lastNetworkError?.message}`);
+  throw new HttpError(
+    502,
+    lastNetworkError?.name === "TimeoutError"
+      ? "The AI provider did not respond in time. A shorter question is more likely to finish."
+      : "The AI provider could not be reached. Please check the connection and try again.",
+    "AI_PROVIDER_UNAVAILABLE",
+  );
+}
+
+export async function requestChat(rawMessages, onChunk) {
   if (!aiConfigured) throw new HttpError(503, "AI analysis is not configured on this server. Set GEMINI_API_KEY, or AI_BASE_URL + AI_API_KEY + AI_MODEL for another OpenAI-compatible provider.", "AI_NOT_CONFIGURED");
   const messages = await normaliseMessages(rawMessages);
-  let response;
-  try {
-    response = await fetch(`${config.ai.baseUrl}/chat/completions`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.ai.apiKey}` }, body: JSON.stringify({ model: config.ai.model, messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages], temperature: 0.25, max_tokens: 1_000 }), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  } catch (cause) {
-    throw new HttpError(502, cause?.name === "TimeoutError" ? "The AI provider did not respond in time." : "The AI provider could not be reached.", "AI_PROVIDER_UNAVAILABLE");
+
+  const response = await openCompletionStream({
+    model: config.ai.model,
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+    temperature: 0.25,
+    max_tokens: 1_600,
+    stream: true,
+  }, Date.now() + REQUEST_TIMEOUT_MS);
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error(`[medipal] AI provider error ${response.status}: ${errorBody.slice(0, 200)}`);
+    throw new HttpError(502, providerRejectionMessage(response.status), "AI_PROVIDER_ERROR");
   }
-  if (!response.ok) throw new HttpError(502, `The AI provider responded with status ${response.status}.`, "AI_PROVIDER_ERROR");
-  const reply = extractReply(await response.json());
-  if (!reply) throw new HttpError(502, "The AI provider returned an empty response.", "AI_EMPTY_RESPONSE");
-  return { reply, model: config.ai.model };
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let raw = "";
+  let buffer = "";
+  let fullReply = "";
+  let sawStreamFrame = false;
+  let truncated = false;
+  let contentFiltered = false;
+  let providerError = null;
+
+  const handleLine = (line) => {
+    const trimmed = line.trim();
+    // `:` frames are SSE comments — the server's own progress heartbeat.
+    if (!trimmed || trimmed.startsWith(":")) return;
+    if (!trimmed.startsWith("data:")) return;
+    const data = trimmed.slice(5).trim();
+    if (!data || data === "[DONE]") return;
+
+    let json;
+    try { json = JSON.parse(data); } catch { return; }
+    sawStreamFrame = true;
+
+    // Some providers report a mid-stream failure as a normal event.
+    if (json.error) {
+      providerError = typeof json.error === "string" ? json.error : json.error?.message || "provider error";
+      return;
+    }
+
+    const choice = json.choices?.[0];
+    if (!choice) return;
+    if (choice.finish_reason === "length") truncated = true;
+    if (choice.finish_reason === "content_filter") contentFiltered = true;
+
+    const delta = choice.delta || choice.message || {};
+    /**
+     * Reasoning output is deliberately kept out of the reply. It is a
+     * scratchpad, not an answer, and a model that exhausts its budget while
+     * still reasoning must be reported as truncated — never rendered as
+     * clinical advice.
+     */
+    const content = typeof delta.content === "string" ? delta.content : "";
+    if (content) {
+      fullReply += content;
+      onChunk({ reply: fullReply, done: false });
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const decoded = decoder.decode(value, { stream: true });
+    raw += decoded;
+    buffer += decoded;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) handleLine(line);
+  }
+  if (buffer) handleLine(buffer);
+
+  /**
+   * A gateway that ignores `stream: true` answers with one JSON document rather
+   * than SSE frames. Reading it here keeps that case a real answer instead of a
+   * misleading "empty response" error.
+   */
+  if (!sawStreamFrame && !fullReply.trim() && raw.trim()) {
+    try { fullReply = extractReply(JSON.parse(raw)); } catch { /* not a JSON payload either */ }
+  }
+
+  if (!fullReply.trim()) {
+    if (providerError) {
+      console.error(`[medipal] AI provider stream error: ${String(providerError).slice(0, 200)}`);
+      throw new HttpError(502, "MEDIPAL AI could not answer this question right now. Please try again.", "AI_PROVIDER_ERROR");
+    }
+    if (contentFiltered) {
+      throw new HttpError(422, "MEDIPAL AI could not answer this question. Please rephrase it.", "AI_CONTENT_FILTERED");
+    }
+    throw new HttpError(502, "MEDIPAL AI returned an empty answer. Please try again.", "AI_EMPTY_RESPONSE");
+  }
+
+  if (truncated) {
+    fullReply += "\n\n_This answer was cut off at the length limit. Ask a follow-up to continue it._";
+  }
+
+  onChunk({ reply: fullReply, done: true, model: config.ai.model });
 }

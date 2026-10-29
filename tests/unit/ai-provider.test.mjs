@@ -20,6 +20,10 @@ process.env.GEMINI_API_KEY = PLACEHOLDER_KEY;
 process.env.AI_BASE_URL = "";
 process.env.AI_API_KEY = "";
 process.env.AI_MODEL = "";
+// Pinned empty so the default is proven from code, not from a developer's
+// local `.env.server` that may legitimately enable vision.
+process.env.AI_SUPPORTS_IMAGES = "";
+process.env.AI_SUPPORTS_VIDEO_FRAMES = "";
 
 const gemini = await import("../../server/env.mjs");
 

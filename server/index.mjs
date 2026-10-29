@@ -234,11 +234,40 @@ async function handleApi(request, response, url) {
 
   if (path === "/api/ai/chat" && request.method === "POST") {
     enforceRateLimit(`ai:${request.socket.remoteAddress || "unknown"}`);
-    // Encoded media is deliberately capped. The AI route validates every file
-    // again before it reaches an external provider.
     const body = await readJsonBody(request, 30 * 1024 * 1024);
-    const result = await requestChat(body.messages);
-    sendJson(response, 200, result);
+    
+    // Set headers for Server-Sent Events (SSE)
+    response.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      // A reverse proxy in front of MEDIPAL must not buffer the stream, or the
+      // reply would only appear once the provider had finished writing it.
+      "X-Accel-Buffering": "no",
+    });
+    response.flushHeaders?.();
+    // Opening comment frame: confirms the connection immediately, so a slow
+    // provider cannot be mistaken for an unresponsive app.
+    response.write(": open\n\n");
+
+    // Comment frames are valid SSE events every browser ignores, so they keep
+    // the connection alive while the provider is still generating the answer.
+    const heartbeat = setInterval(() => {
+      response.write(": ping\n\n");
+    }, 15_000);
+
+    try {
+      await requestChat(body.messages, (chunk) => {
+        response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      });
+      response.end();
+    } catch (error) {
+      console.error("[medipal] AI streaming error:", error);
+      response.write(`data: ${JSON.stringify({ error: error.message || "AI analysis failed.", code: error.code })}\n\n`);
+      response.end();
+    } finally {
+      clearInterval(heartbeat);
+    }
     return true;
   }
 
